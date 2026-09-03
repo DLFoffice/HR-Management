@@ -713,6 +713,17 @@ function safeNum(v){
   const m = String(v).match(/-?\d+(\.\d+)?/);
   return m ? Number(m[0]) : 0;
 }
+function toDateOnly(v){
+  if(v===undefined || v===null || v==='') return '';
+  if(v instanceof Date){
+    if(isNaN(v)) return '';
+    const y=v.getFullYear(), m=String(v.getMonth()+1).padStart(2,'0'), d=String(v.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(v);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s;
+}
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 function fiscalYearRange(ref){
@@ -1214,9 +1225,9 @@ function openEmployeeModal(id){
       name,
       position: document.getElementById('f_position').value.trim(),
       department: document.getElementById('f_department').value.trim(),
-      birthDate: document.getElementById('f_birthDate').value,
-      hireDate: document.getElementById('f_hireDate').value,
-      retireDate: document.getElementById('f_retireDate').value,
+      birthDate: toDateOnly(document.getElementById('f_birthDate').value),
+      hireDate: toDateOnly(document.getElementById('f_hireDate').value),
+      retireDate: toDateOnly(document.getElementById('f_retireDate').value),
       sickRight: Number(document.getElementById('f_sickRight').value||0),
       vacationRight: Number(document.getElementById('f_vacationRight').value||0),
       personalRight: Number(document.getElementById('f_personalRight').value||0),
@@ -1337,11 +1348,11 @@ function openLeaveModal(id){
     const emp = employeeById(empId);
     const data = {
       id: rec? rec.id : undefined,
-      submitDate: document.getElementById('f_submitDate').value,
+      submitDate: toDateOnly(document.getElementById('f_submitDate').value),
       employeeId: empId,
       employeeName: emp? emp.name : '',
       leaveType: document.getElementById('f_type').value,
-      startDate: start, endDate: end, days,
+      startDate: toDateOnly(start), endDate: toDateOnly(end), days,
       reason: document.getElementById('f_reason').value.trim(),
       note: document.getElementById('f_note').value.trim()
     };
@@ -1455,7 +1466,7 @@ function openLoanModal(id){
     const data = {
       id: rec? rec.id : undefined,
       requestNo: document.getElementById('f_reqno').value.trim(),
-      submitDate: document.getElementById('f_submitDate').value,
+      submitDate: toDateOnly(document.getElementById('f_submitDate').value),
       employeeId: empId, employeeName: emp? emp.name : '',
       loanType: document.getElementById('f_loanType').value,
       approvedAmount: amount, months, installment,
@@ -1560,7 +1571,7 @@ function openWelfareModal(id){
     if(!approved) approved = Math.max(receipt - sso, 0);
     const data = {
       id: rec? rec.id : undefined,
-      submitDate: document.getElementById('f_submitDate').value,
+      submitDate: toDateOnly(document.getElementById('f_submitDate').value),
       employeeId: empId, employeeName: emp? emp.name : '',
       category: document.getElementById('f_cat').value,
       hospital: document.getElementById('f_hospital').value.trim(),
@@ -1732,10 +1743,13 @@ function viewSettings(){
       <span class="sync-dot ${state.settings.gasUrl?'sync-none':'sync-none'}" id="settingsDot"></span>
       <span id="settingsStatusText">${state.settings.gasUrl? (state.lastSync? 'ซิงค์ล่าสุด '+fmtDateTime(state.lastSync) : 'ยังไม่เคยซิงค์') : 'ยังไม่ได้ตั้งค่า URL'}</span>
     </div>
-    <div style="margin-top:14px; display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; margin-top:14px;">
       <button class="btn" id="btnTestConn">ทดสอบการเชื่อมต่อ</button>
       <button class="btn btn-primary" id="btnManualSync">ซิงค์ข้อมูลตอนนี้</button>
+      <button class="btn btn-gold" id="btnRepairDates">ซ่อมข้อมูลวันที่ผิดพลาด</button>
     </div>
+    <div class="muted" style="font-size:12px; margin-top:8px;">
+      กด "ซ่อมข้อมูลวันที่ผิดพลาด" หากพบว่าบางเซลล์ในชีตแสดงวันที่แบบยาวผิดปกติ (เช่น 2018-05-31T17:00:00.000Z) ปุ่มนี้จะแก้ไขให้เหลือแค่วันที่ล้วนโดยไม่กระทบข้อมูลอื่น</div>
   </div>
 
   <div class="panel">
@@ -1929,6 +1943,16 @@ function bindViewEvents(v){
       }catch(e){ toast('เชื่อมต่อไม่สำเร็จ: '+e.message); }
     });
     document.getElementById('btnManualSync')?.addEventListener('click', ()=>syncFromSheet(true));
+    document.getElementById('btnRepairDates')?.addEventListener('click', async ()=>{
+      if(!gasReady()){ toast('กรุณาตั้งค่า URL ก่อน'); return; }
+      toast('กำลังซ่อมข้อมูลวันที่...');
+      try{
+        const data = await gasGet('repair');
+        if(data.error) throw new Error(data.error);
+        toast('ซ่อมข้อมูลวันที่แล้ว '+data.fixedCount+' เซลล์');
+        syncFromSheet(false);
+      }catch(e){ toast('ซ่อมข้อมูลไม่สำเร็จ: '+e.message); }
+    });
     document.getElementById('btnImportSeed')?.addEventListener('click', importSeedData);
     document.getElementById('btnImportSeed2569')?.addEventListener('click', ()=>importSeedDataGeneric(SEED_DATA_2569, 'ทะเบียนพนักงานล่าสุด 133 คน'));
     document.getElementById('btnSaveCloudinary')?.addEventListener('click', async ()=>{
