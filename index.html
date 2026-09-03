@@ -266,6 +266,8 @@ table.reg td{
 table.reg tbody tr{transition:background .18s var(--ease);}
 table.reg tbody tr:hover{background:var(--lav-bg);}
 table.reg tbody tr.row-clickable{cursor:pointer;}
+.row-clickable{cursor:pointer; transition:background .15s var(--ease);}
+.row-clickable:hover{background:var(--lav-bg);}
 table.reg th.num, table.reg td.num{font-variant-numeric:tabular-nums; text-align:right;}
 table.reg th.rownum, table.reg td.rownum{color:var(--ink-faint); font-size:12px; width:30px; text-align:left;}
 .table-wrap{overflow-x:auto;}
@@ -549,6 +551,7 @@ function setApprovalStatus(sheet, id, status){
   const rec = state[sheet].find(r=>r.id===id);
   if(!rec) return;
   crudUpdate(sheet, {...rec, approvalStatus: status});
+  closeModal();
 }
 
 function openAdminLoginModal(){
@@ -1125,9 +1128,9 @@ function viewDashboard(){
     <div class="table-wrap"><table class="reg">
       <thead><tr><th>ประเภท</th><th>พนักงาน</th><th>รายละเอียด</th><th class="num">วันที่ยื่น</th><th>จัดการ</th></tr></thead>
       <tbody>
-        ${pendingLeaves.map(l=>`<tr><td><span class="tag tag-navy">วันลา</span></td><td>${esc(l.employeeName)}</td><td>${LEAVE_TYPES[l.leaveType]||''} ${l.days} วัน</td><td class="num">${buddhistDate(l.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('leaves', l)}</td></tr>`).join('')}
-        ${pendingLoans.map(l=>`<tr><td><span class="tag tag-navy">เงินกู้</span></td><td>${esc(l.employeeName)}</td><td>${esc(l.loanType)} ${money(l.approvedAmount)} บาท</td><td class="num">${buddhistDate(l.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('loans', l)}</td></tr>`).join('')}
-        ${pendingWelfare.map(w=>`<tr><td><span class="tag tag-navy">สวัสดิการ</span></td><td>${esc(w.employeeName)}</td><td>${esc(w.category)} ${money(w.approvedAmount)} บาท</td><td class="num">${buddhistDate(w.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('welfare', w)}</td></tr>`).join('')}
+        ${pendingLeaves.map(l=>`<tr class="row-clickable" data-pending-leave="${l.id}"><td><span class="tag tag-navy">วันลา</span></td><td>${esc(l.employeeName)}</td><td>${LEAVE_TYPES[l.leaveType]||''} ${l.days} วัน</td><td class="num">${buddhistDate(l.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('leaves', l)}</td></tr>`).join('')}
+        ${pendingLoans.map(l=>`<tr class="row-clickable" data-pending-loan="${l.id}"><td><span class="tag tag-navy">เงินกู้</span></td><td>${esc(l.employeeName)}</td><td>${esc(l.loanType)} ${money(l.approvedAmount)} บาท</td><td class="num">${buddhistDate(l.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('loans', l)}</td></tr>`).join('')}
+        ${pendingWelfare.map(w=>`<tr class="row-clickable" data-pending-welf="${w.id}"><td><span class="tag tag-navy">สวัสดิการ</span></td><td>${esc(w.employeeName)}</td><td>${esc(w.category)} ${money(w.approvedAmount)} บาท</td><td class="num">${buddhistDate(w.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('welfare', w)}</td></tr>`).join('')}
       </tbody>
     </table></div>
     ${!state.isAdmin ? '<div class="muted" style="font-size:12.5px; margin-top:10px;">เข้าสู่โหมดแอดมินเพื่ออนุมัติ/ไม่อนุมัติรายการเหล่านี้</div>' : ''}
@@ -1166,7 +1169,7 @@ function viewDashboard(){
     <div class="panel">
       <h2>รายการลาล่าสุด</h2>
       ${recentLeaves.length? recentLeaves.map(l=>`
-        <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
+        <div class="row-clickable" data-recent-leave="${l.id}" style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
           <span>${esc(l.employeeName)}</span><span class="tag tag-navy">${LEAVE_TYPES[l.leaveType]||l.leaveType}</span>
         </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ยังไม่มีรายการลา</div>'}
     </div>
@@ -1447,7 +1450,7 @@ function renderLeaveTable(){
   if(!tbody) return;
   const rows = leaveRows();
   tbody.innerHTML = rows.length ? rows.map((l,i)=>`
-    <tr>
+    <tr class="row-clickable" data-leave-id="${l.id}">
       <td class="rownum">${i+1}</td>
       <td class="num">${buddhistDate(l.submitDate)}</td>
       <td>${esc(l.employeeName)}</td>
@@ -1463,8 +1466,15 @@ function renderLeaveTable(){
         ${approvalActionsHtml('leaves', l)}
       </td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="10">ยังไม่มีรายการลา</td></tr>`;
-  tbody.querySelectorAll('[data-edit-leave]').forEach(b=>b.addEventListener('click', ()=>openLeaveModal(b.dataset.editLeave)));
-  tbody.querySelectorAll('[data-del-leave]').forEach(b=>b.addEventListener('click', ()=>{
+  tbody.querySelectorAll('tr[data-leave-id]').forEach(tr=>{
+    tr.addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      openLeaveDetailModal(tr.dataset.leaveId);
+    });
+  });
+  tbody.querySelectorAll('[data-edit-leave]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openLeaveModal(b.dataset.editLeave); }));
+  tbody.querySelectorAll('[data-del-leave]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
     if(confirm('ยืนยันลบรายการลานี้?')) crudDelete('leaves', b.dataset.delLeave);
   }));
   bindApprovalButtons(tbody);
@@ -1529,6 +1539,41 @@ function openLeaveModal(id){
   });
 }
 
+function openLeaveDetailModal(id){
+  const rec = state.leaves.find(l=>l.id===id);
+  if(!rec) return;
+  const emp = employeeById(rec.employeeId);
+  openModal(`
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        ${avatarHtml(emp,54)}
+        <div>
+          <h3 style="margin:0 0 3px;">${esc(rec.employeeName)}</h3>
+          <div class="muted" style="font-size:13px;">${emp?esc(emp.position):''}</div>
+        </div>
+      </div>
+      ${approvalTag(rec)}
+    </div>
+    <div class="doc-meta" style="margin-bottom:4px;">
+      <div><span class="k">ประเภทการลา: </span>${LEAVE_TYPES[rec.leaveType]||esc(rec.leaveType)}</div>
+      <div><span class="k">วันที่ยื่นใบลา: </span>${buddhistDate(rec.submitDate)}</div>
+      <div><span class="k">ลาตั้งแต่วันที่: </span>${buddhistDate(rec.startDate)}</div>
+      <div><span class="k">ถึงวันที่: </span>${buddhistDate(rec.endDate)}</div>
+      <div><span class="k">จำนวนวัน: </span>${rec.days} วัน</div>
+      <div></div>
+      <div class="field full"><span class="k">เหตุผลการลา: </span>${esc(rec.reason)||'-'}</div>
+      <div class="field full"><span class="k">หมายเหตุ: </span>${esc(rec.note)||'-'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelModal">ปิด</button>
+      ${approvalActionsHtml('leaves', rec)}
+      <button class="btn btn-primary" id="btnEditFromDetail">แก้ไขรายการนี้</button>
+    </div>
+  `);
+  bindApprovalButtons(document.getElementById('modalBox'));
+  document.getElementById('btnEditFromDetail').addEventListener('click', ()=>{ closeModal(); openLeaveModal(id); });
+}
+
 /* ================= LOANS ================= */
 function viewLoans(){
   return `
@@ -1574,7 +1619,7 @@ function renderLoanTable(){
     const remaining = loanRemaining(l);
     const status = l.status||'active';
     return `
-    <tr>
+    <tr class="row-clickable" data-loan-id="${l.id}">
       <td class="rownum">${i+1}</td>
       <td class="num">${esc(l.requestNo)}</td>
       <td>${esc(l.employeeName)}</td>
@@ -1591,8 +1636,15 @@ function renderLoanTable(){
       </td>
     </tr>`;
   }).join('') : `<tr class="empty-row"><td colspan="10">ยังไม่มีรายการเงินกู้</td></tr>`;
-  tbody.querySelectorAll('[data-edit-loan]').forEach(b=>b.addEventListener('click', ()=>openLoanModal(b.dataset.editLoan)));
-  tbody.querySelectorAll('[data-del-loan]').forEach(b=>b.addEventListener('click', ()=>{
+  tbody.querySelectorAll('tr[data-loan-id]').forEach(tr=>{
+    tr.addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      openLoanDetailModal(tr.dataset.loanId);
+    });
+  });
+  tbody.querySelectorAll('[data-edit-loan]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openLoanModal(b.dataset.editLoan); }));
+  tbody.querySelectorAll('[data-del-loan]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
     if(confirm('ยืนยันลบรายการเงินกู้นี้?')) crudDelete('loans', b.dataset.delLoan);
   }));
   bindApprovalButtons(tbody);
@@ -1654,6 +1706,46 @@ function openLoanModal(id){
   });
 }
 
+function openLoanDetailModal(id){
+  const rec = state.loans.find(l=>l.id===id);
+  if(!rec) return;
+  const emp = employeeById(rec.employeeId);
+  const remaining = loanRemaining(rec);
+  const status = rec.status||'active';
+  openModal(`
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        ${avatarHtml(emp,54)}
+        <div>
+          <h3 style="margin:0 0 3px;">${esc(rec.employeeName)}</h3>
+          <div class="muted" style="font-size:13px;">${emp?esc(emp.position):''}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:6px;">${approvalTag(rec)}${status==='closed'?'<span class="tag tag-green">ปิดบัญชีแล้ว</span>':'<span class="tag tag-amber">กำลังผ่อน</span>'}</div>
+    </div>
+    <div class="doc-meta" style="margin-bottom:4px;">
+      <div><span class="k">เลขที่คำร้อง: </span>${esc(rec.requestNo)||'-'}</div>
+      <div><span class="k">วันที่ยื่นคำขอ: </span>${buddhistDate(rec.submitDate)}</div>
+      <div><span class="k">ประเภทเงินกู้: </span>${esc(rec.loanType)}</div>
+      <div><span class="k">ผู้ค้ำประกัน: </span>${esc(rec.guarantor)||'-'}</div>
+      <div><span class="k">จำนวนเงินอนุมัติ: </span>${money(rec.approvedAmount)} บาท</div>
+      <div><span class="k">ระยะเวลาผ่อน: </span>${rec.months||0} เดือน</div>
+      <div><span class="k">ชำระงวดละ: </span>${money(rec.installment)} บาท</div>
+      <div><span class="k">งวดที่ผ่อนแล้ว: </span>${rec.paidInstallments||0} งวด</div>
+      <div><span class="k">คงเหลือ: </span>${money(remaining)} บาท</div>
+      <div></div>
+      <div class="field full"><span class="k">หมายเหตุ: </span>${esc(rec.note)||'-'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelModal">ปิด</button>
+      ${approvalActionsHtml('loans', rec)}
+      <button class="btn btn-primary" id="btnEditFromDetail">แก้ไขรายการนี้</button>
+    </div>
+  `);
+  bindApprovalButtons(document.getElementById('modalBox'));
+  document.getElementById('btnEditFromDetail').addEventListener('click', ()=>{ closeModal(); openLoanModal(id); });
+}
+
 /* ================= WELFARE / SOCIAL SECURITY ================= */
 function viewWelfare(){
   return `
@@ -1691,7 +1783,7 @@ function renderWelfareTable(){
   if(!tbody) return;
   const rows = welfareRows();
   tbody.innerHTML = rows.length ? rows.map((w,i)=>`
-    <tr>
+    <tr class="row-clickable" data-welf-id="${w.id}">
       <td class="rownum">${i+1}</td>
       <td class="num">${buddhistDate(w.submitDate)}</td>
       <td>${esc(w.employeeName)}</td>
@@ -1707,8 +1799,15 @@ function renderWelfareTable(){
         ${approvalActionsHtml('welfare', w)}
       </td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="10">ยังไม่มีรายการเบิกสวัสดิการ</td></tr>`;
-  tbody.querySelectorAll('[data-edit-welf]').forEach(b=>b.addEventListener('click', ()=>openWelfareModal(b.dataset.editWelf)));
-  tbody.querySelectorAll('[data-del-welf]').forEach(b=>b.addEventListener('click', ()=>{
+  tbody.querySelectorAll('tr[data-welf-id]').forEach(tr=>{
+    tr.addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      openWelfareDetailModal(tr.dataset.welfId);
+    });
+  });
+  tbody.querySelectorAll('[data-edit-welf]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openWelfareModal(b.dataset.editWelf); }));
+  tbody.querySelectorAll('[data-del-welf]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
     if(confirm('ยืนยันลบรายการนี้?')) crudDelete('welfare', b.dataset.delWelf);
   }));
   bindApprovalButtons(tbody);
@@ -1764,6 +1863,44 @@ function openWelfareModal(id){
     closeModal();
     if(rec) crudUpdate('welfare', data); else crudAdd('welfare', data);
   });
+}
+
+function openWelfareDetailModal(id){
+  const rec = state.welfare.find(w=>w.id===id);
+  if(!rec) return;
+  const emp = employeeById(rec.employeeId);
+  openModal(`
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        ${avatarHtml(emp,54)}
+        <div>
+          <h3 style="margin:0 0 3px;">${esc(rec.employeeName)}</h3>
+          <div class="muted" style="font-size:13px;">${emp?esc(emp.position):''}</div>
+        </div>
+      </div>
+      ${approvalTag(rec)}
+    </div>
+    <div class="doc-meta" style="margin-bottom:4px;">
+      <div><span class="k">หมวดหมู่: </span>${esc(rec.category)}</div>
+      <div><span class="k">วันที่ยื่นเบิก: </span>${buddhistDate(rec.submitDate)}</div>
+      <div><span class="k">สถานพยาบาล: </span>${esc(rec.hospital)||'-'}</div>
+      <div><span class="k">เลขที่คำร้อง: </span>${esc(rec.requestNo)||'-'}</div>
+      <div><span class="k">รายการ/หัตถการ: </span>${esc(rec.procedure)||'-'}</div>
+      <div></div>
+      <div><span class="k">ยอดใบเสร็จ: </span>${money(rec.receiptAmount)} บาท</div>
+      <div><span class="k">ประกันสังคมจ่าย: </span>${money(rec.ssoPaid)} บาท</div>
+      <div><span class="k">อนุมัติให้เบิก: </span>${money(rec.approvedAmount)} บาท</div>
+      <div></div>
+      <div class="field full"><span class="k">หมายเหตุ: </span>${esc(rec.note)||'-'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelModal">ปิด</button>
+      ${approvalActionsHtml('welfare', rec)}
+      <button class="btn btn-primary" id="btnEditFromDetail">แก้ไขรายการนี้</button>
+    </div>
+  `);
+  bindApprovalButtons(document.getElementById('modalBox'));
+  document.getElementById('btnEditFromDetail').addEventListener('click', ()=>{ closeModal(); openWelfareModal(id); });
 }
 
 /* ================= REPORTS ================= */
@@ -2087,6 +2224,10 @@ function bindViewEvents(v){
   if(v==='dashboard'){
     document.getElementById('btnSyncTop')?.addEventListener('click', ()=>syncFromSheet(true));
     bindApprovalButtons(document.getElementById('viewRoot'));
+    document.querySelectorAll('[data-pending-leave]').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button')) return; openLeaveDetailModal(tr.dataset.pendingLeave); }));
+    document.querySelectorAll('[data-pending-loan]').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button')) return; openLoanDetailModal(tr.dataset.pendingLoan); }));
+    document.querySelectorAll('[data-pending-welf]').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button')) return; openWelfareDetailModal(tr.dataset.pendingWelf); }));
+    document.querySelectorAll('[data-recent-leave]').forEach(el=>el.addEventListener('click', ()=>openLeaveDetailModal(el.dataset.recentLeave)));
   }
   else if(v==='employees'){
     document.getElementById('btnAddEmp')?.addEventListener('click', ()=>openEmployeeModal(null));
