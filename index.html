@@ -425,16 +425,21 @@ let state = {
 
 let charts = {};
 
-/* ---------------- Storage helpers ---------------- */
+/* ---------------- Storage helpers ----------------
+   ใช้ localStorage ของเบราว์เซอร์ (ไม่ใช่ window.storage ซึ่งใช้ได้เฉพาะใน Claude.ai เท่านั้น)
+   เพื่อให้ไฟล์ HTML นี้บันทึกค่าถาวรได้เมื่อเปิดใช้งานจริงนอก Claude.ai
+------------------------------------------------- */
+const LS_KEYS = { settings: 'hr_system_settings_v1', cache: 'hr_system_cache_v1' };
+
 async function loadPersisted(){
   try{
-    const s = await window.storage.get('settings', false);
-    if(s && s.value) state.settings = Object.assign({}, state.settings, JSON.parse(s.value));
+    const s = localStorage.getItem(LS_KEYS.settings);
+    if(s) state.settings = Object.assign({}, state.settings, JSON.parse(s));
   }catch(e){}
   try{
-    const c = await window.storage.get('cache', false);
-    if(c && c.value){
-      const data = JSON.parse(c.value);
+    const c = localStorage.getItem(LS_KEYS.cache);
+    if(c){
+      const data = JSON.parse(c);
       state.employees = data.employees || [];
       state.leaves = data.leaves || [];
       state.loans = data.loans || [];
@@ -444,15 +449,16 @@ async function loadPersisted(){
   }catch(e){}
 }
 async function saveSettings(){
-  try{ await window.storage.set('settings', JSON.stringify(state.settings), false); }catch(e){}
+  try{ localStorage.setItem(LS_KEYS.settings, JSON.stringify(state.settings)); }
+  catch(e){ toast('บันทึกการตั้งค่าไม่สำเร็จ: '+e.message); }
 }
 async function saveCache(){
   try{
-    await window.storage.set('cache', JSON.stringify({
+    localStorage.setItem(LS_KEYS.cache, JSON.stringify({
       employees: state.employees, leaves: state.leaves, loans: state.loans,
       welfare: state.welfare, lastSync: state.lastSync
-    }), false);
-  }catch(e){}
+    }));
+  }catch(e){ toast('บันทึกข้อมูลสำรองไม่สำเร็จ: '+e.message); }
 }
 
 /* ---------------- GAS sync ---------------- */
