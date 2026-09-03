@@ -124,6 +124,20 @@ nav.navlist{padding:16px 12px; flex:1;}
   padding:16px 20px 20px; border-top:1px solid rgba(255,255,255,0.18);
   font-size:11.5px; color:#E3DEFF;
 }
+.admin-badge{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+  border-radius:12px; padding:9px 12px; font-size:12px; color:#F2EFFF;
+}
+.admin-badge .lbl{display:flex; align-items:center; gap:6px; font-weight:600;}
+.admin-badge .dot{width:7px; height:7px; border-radius:50%; background:#FFD166;}
+.admin-badge.on .dot{background:#4FE3B0;}
+.admin-badge button{
+  background:rgba(255,255,255,0.9); border:none; color:#123A6B; font-weight:600;
+  font-size:11px; padding:5px 10px; border-radius:8px; cursor:pointer;
+  transition:transform .15s var(--ease);
+}
+.admin-badge button:hover{transform:translateY(-1px);}
 .sync-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:6px; position:relative; top:-1px;}
 .sync-ok{background:#4FE3B0; box-shadow:0 0 0 0 rgba(79,227,176,.6); animation:pulseDot 1.8s infinite;}
 .sync-bad{background:#FF8090;}
@@ -223,6 +237,15 @@ nav.navlist{padding:16px 12px; flex:1;}
   content:''; width:9px; height:9px; border-radius:50%; flex-shrink:0;
   background:linear-gradient(135deg, var(--lav) 0%, var(--mint) 100%);
   box-shadow:0 0 0 4px var(--lav-bg);
+}
+.dept-box{border-top:3px solid var(--lav);}
+.dept-box:nth-of-type(2){border-top-color:var(--mint);}
+.dept-box:nth-of-type(3){border-top-color:var(--peach);}
+.dept-box:nth-of-type(4){border-top-color:var(--pink);}
+.dept-box:nth-of-type(5){border-top-color:var(--sun);}
+.dept-count{
+  font-size:11.5px; font-weight:600; color:var(--lav-deep); margin-left:2px;
+  background:var(--lav-bg); padding:2px 11px; border-radius:20px;
 }
 
 /* ---------- Tables ---------- */
@@ -426,6 +449,7 @@ code.inline{background:var(--lav-bg); color:var(--lav-deep); padding:2px 7px; bo
       </div>
     </div>
     <nav class="navlist" id="navlist"></nav>
+    <div id="adminBadge" style="padding:0 20px 14px;"></div>
     <div class="sidebar-foot">
       สถานะเชื่อมต่อ Google Sheet
       <span class="sync-dot sync-none" id="syncDot"></span>
@@ -477,10 +501,88 @@ let state = {
   leaves: [],
   loans: [],
   welfare: [],
-  settings: { gasUrl: 'https://script.google.com/macros/s/AKfycbzNLg0fI-yJop5QG_GCXHBKCZMRDj0DbNRcFue82zFDxP1S5X2_xVZtadMwWxTCb_3M/exec', cloudinaryCloud: 'deyqenuv3', cloudinaryPreset: 'Picstaff', logoUrl: 'https://dltv.ac.th/upload/data/users/0/316/CMS/images/logo%20dlf%20%E0%B8%AA%E0%B8%A1%E0%B8%9A%E0%B8%B9%E0%B8%A3%E0%B8%93%E0%B9%8C.png' },
+  settings: { gasUrl: 'https://script.google.com/macros/s/AKfycbzNLg0fI-yJop5QG_GCXHBKCZMRDj0DbNRcFue82zFDxP1S5X2_xVZtadMwWxTCb_3M/exec', cloudinaryCloud: 'deyqenuv3', cloudinaryPreset: 'Picstaff', logoUrl: 'https://dltv.ac.th/upload/data/users/0/316/CMS/images/logo%20dlf%20%E0%B8%AA%E0%B8%A1%E0%B8%9A%E0%B8%B9%E0%B8%A3%E0%B8%93%E0%B9%8C.png', adminPin: '1234' },
   lastSync: null,
-  currentView: 'dashboard'
+  currentView: 'dashboard',
+  isAdmin: false
 };
+
+const DEPT_ORDER = ['สำนักงานฯ','สถานีฯ'];
+function deptSortKey(d){
+  const i = DEPT_ORDER.indexOf(d);
+  return i===-1 ? 100+DEPT_ORDER.length : i;
+}
+function isApproved(r){ return (r.approvalStatus||'approved') === 'approved'; }
+function approvalTag(r){
+  const st = r.approvalStatus||'approved';
+  if(st==='pending') return '<span class="tag tag-amber">รออนุมัติ</span>';
+  if(st==='rejected') return '<span class="tag tag-red">ไม่อนุมัติ</span>';
+  return '<span class="tag tag-green">อนุมัติแล้ว</span>';
+}
+function approvalActionsHtml(sheet, r){
+  if(!state.isAdmin) return '';
+  const st = r.approvalStatus||'approved';
+  if(st==='pending'){
+    return `<button class="btn btn-sm" style="color:var(--green); border-color:var(--green-bg);" data-approve="${sheet}:${r.id}">อนุมัติ</button>
+      <button class="btn btn-sm btn-danger" data-reject="${sheet}:${r.id}">ไม่อนุมัติ</button>`;
+  }
+  return `<button class="btn btn-sm" data-reset-approval="${sheet}:${r.id}">รีเซ็ตสถานะ</button>`;
+}
+function bindApprovalButtons(container){
+  container.querySelectorAll('[data-approve]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [sheet,id] = b.dataset.approve.split(':');
+    setApprovalStatus(sheet, id, 'approved');
+  }));
+  container.querySelectorAll('[data-reject]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [sheet,id] = b.dataset.reject.split(':');
+    setApprovalStatus(sheet, id, 'rejected');
+  }));
+  container.querySelectorAll('[data-reset-approval]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [sheet,id] = b.dataset.resetApproval.split(':');
+    setApprovalStatus(sheet, id, 'pending');
+  }));
+}
+function setApprovalStatus(sheet, id, status){
+  const rec = state[sheet].find(r=>r.id===id);
+  if(!rec) return;
+  crudUpdate(sheet, {...rec, approvalStatus: status});
+}
+
+function openAdminLoginModal(){
+  openModal(`
+    <h3>เข้าสู่โหมดแอดมิน</h3>
+    <div class="field"><label>รหัส PIN</label><input type="password" id="adminPinInput" placeholder="กรอกรหัส PIN"></div>
+    <div class="field-error" id="adminPinError">รหัส PIN ไม่ถูกต้อง</div>
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelModal">ยกเลิก</button>
+      <button class="btn btn-primary" id="btnAdminLoginConfirm">เข้าสู่ระบบ</button>
+    </div>
+  `);
+  const input = document.getElementById('adminPinInput');
+  input.focus();
+  const tryLogin = ()=>{
+    if(input.value === (state.settings.adminPin||'1234')){
+      state.isAdmin = true;
+      try{ sessionStorage.setItem('hr_is_admin','1'); }catch(e){}
+      closeModal();
+      renderNav(); renderView();
+      toast('เข้าสู่โหมดแอดมินแล้ว');
+    } else {
+      document.getElementById('adminPinError').style.display='block';
+    }
+  };
+  document.getElementById('btnAdminLoginConfirm').addEventListener('click', tryLogin);
+  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryLogin(); });
+}
+function adminLogout(){
+  state.isAdmin = false;
+  try{ sessionStorage.removeItem('hr_is_admin'); }catch(e){}
+  renderNav(); renderView();
+  toast('ออกจากโหมดแอดมินแล้ว');
+}
 
 let charts = {};
 
@@ -922,6 +1024,25 @@ function renderNav(){
   nav.querySelectorAll('button').forEach(b=>{
     b.addEventListener('click', ()=>{ state.currentView = b.dataset.view; renderNav(); renderView(); });
   });
+  renderAdminBadge();
+}
+
+function renderAdminBadge(){
+  const box = document.getElementById('adminBadge');
+  if(!box) return;
+  if(state.isAdmin){
+    box.innerHTML = `<div class="admin-badge on">
+      <span class="lbl"><span class="dot"></span>โหมดแอดมิน</span>
+      <button id="btnAdminLogout">ออก</button>
+    </div>`;
+    document.getElementById('btnAdminLogout').addEventListener('click', adminLogout);
+  } else {
+    box.innerHTML = `<div class="admin-badge">
+      <span class="lbl"><span class="dot"></span>โหมดพนักงาน</span>
+      <button id="btnAdminLoginOpen">เข้าแอดมิน</button>
+    </div>`;
+    document.getElementById('btnAdminLoginOpen').addEventListener('click', openAdminLoginModal);
+  }
 }
 
 function renderView(){
@@ -950,19 +1071,24 @@ function viewDashboard(){
   const byDept = {};
   state.employees.forEach(e=>{ byDept[e.department||'ไม่ระบุ'] = (byDept[e.department||'ไม่ระบุ']||0)+1; });
 
-  const leavesFY = state.leaves.filter(l=>l.startDate && inRange(l.startDate, fy.start, fy.end));
+  const leavesFY = state.leaves.filter(l=>l.startDate && inRange(l.startDate, fy.start, fy.end) && isApproved(l));
   const leaveDaysTotal = leavesFY.reduce((s,l)=>s+Number(l.days||0),0);
   const leaveByType = {'ป':0,'พ':0,'ก':0};
   leavesFY.forEach(l=>{ if(leaveByType[l.leaveType]!==undefined) leaveByType[l.leaveType]+=Number(l.days||0); });
 
-  const activeLoans = state.loans.filter(l=>l.status!=='closed');
+  const activeLoans = state.loans.filter(l=>l.status!=='closed' && isApproved(l));
   const loanOutstanding = activeLoans.reduce((s,l)=>{
     const paid = Number(l.paidInstallments||0)*Number(l.installment||0);
     return s + Math.max(Number(l.approvedAmount||0)-paid,0);
   },0);
 
-  const welfareFY = state.welfare.filter(w=>w.submitDate && inRange(w.submitDate, fy.start, fy.end));
+  const welfareFY = state.welfare.filter(w=>w.submitDate && inRange(w.submitDate, fy.start, fy.end) && isApproved(w));
   const welfareUsed = welfareFY.reduce((s,w)=>s+Number(w.approvedAmount||0),0);
+
+  const pendingLeaves = state.leaves.filter(l=>(l.approvalStatus||'approved')==='pending');
+  const pendingLoans = state.loans.filter(l=>(l.approvalStatus||'approved')==='pending');
+  const pendingWelfare = state.welfare.filter(w=>(w.approvalStatus||'approved')==='pending');
+  const pendingTotal = pendingLeaves.length + pendingLoans.length + pendingWelfare.length;
 
   const now = new Date();
   const in12mo = new Date(); in12mo.setMonth(in12mo.getMonth()+12);
@@ -992,6 +1118,20 @@ function viewDashboard(){
     <div class="stat"><div class="label">เงินกู้คงค้าง</div><div class="value" id="statLoan" data-to="${loanOutstanding}" data-dec="0">0</div><div class="foot">${activeLoans.length} สัญญาที่ยังผ่อนอยู่</div></div>
     <div class="stat"><div class="label">สวัสดิการเบิกใช้ (ปีงบนี้)</div><div class="value" id="statWelfare" data-to="${welfareUsed}" data-dec="0">0</div><div class="foot">${welfareFY.length} รายการเบิก</div></div>
   </div>
+
+  ${pendingTotal>0 ? `
+  <div class="panel" style="border-left:4px solid var(--amber); margin-bottom:20px;">
+    <h2>รายการรออนุมัติ (${pendingTotal})</h2>
+    <div class="table-wrap"><table class="reg">
+      <thead><tr><th>ประเภท</th><th>พนักงาน</th><th>รายละเอียด</th><th class="num">วันที่ยื่น</th><th>จัดการ</th></tr></thead>
+      <tbody>
+        ${pendingLeaves.map(l=>`<tr><td><span class="tag tag-navy">วันลา</span></td><td>${esc(l.employeeName)}</td><td>${LEAVE_TYPES[l.leaveType]||''} ${l.days} วัน</td><td class="num">${buddhistDate(l.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('leaves', l)}</td></tr>`).join('')}
+        ${pendingLoans.map(l=>`<tr><td><span class="tag tag-navy">เงินกู้</span></td><td>${esc(l.employeeName)}</td><td>${esc(l.loanType)} ${money(l.approvedAmount)} บาท</td><td class="num">${buddhistDate(l.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('loans', l)}</td></tr>`).join('')}
+        ${pendingWelfare.map(w=>`<tr><td><span class="tag tag-navy">สวัสดิการ</span></td><td>${esc(w.employeeName)}</td><td>${esc(w.category)} ${money(w.approvedAmount)} บาท</td><td class="num">${buddhistDate(w.submitDate)}</td><td style="white-space:nowrap;">${approvalActionsHtml('welfare', w)}</td></tr>`).join('')}
+      </tbody>
+    </table></div>
+    ${!state.isAdmin ? '<div class="muted" style="font-size:12.5px; margin-top:10px;">เข้าสู่โหมดแอดมินเพื่ออนุมัติ/ไม่อนุมัติรายการเหล่านี้</div>' : ''}
+  </div>` : ''}
 
   <div class="grid grid-2" style="align-items:start;">
     <div class="panel">
@@ -1036,7 +1176,7 @@ function viewDashboard(){
 
 function renderDashboardCharts(){
   const fy = fiscalYearRange();
-  const leavesFY = state.leaves.filter(l=>l.startDate && inRange(l.startDate, fy.start, fy.end));
+  const leavesFY = state.leaves.filter(l=>l.startDate && inRange(l.startDate, fy.start, fy.end) && isApproved(l));
   const leaveByType = {'ป':0,'พ':0,'ก':0};
   leavesFY.forEach(l=>{ if(leaveByType[l.leaveType]!==undefined) leaveByType[l.leaveType]+=Number(l.days||0); });
 
@@ -1069,19 +1209,11 @@ function viewEmployees(){
     <div><h1>ข้อมูลพนักงาน</h1><div class="sub">ทะเบียนพนักงานทั้งหมด ${state.employees.length} คน</div></div>
     <div class="actions"><button class="btn btn-primary" id="btnAddEmp">+ เพิ่มพนักงาน</button></div>
   </div>
-  <div class="panel">
-    <div class="searchbar">
-      <input type="text" id="empSearch" placeholder="ค้นหาชื่อ / รหัส / ตำแหน่ง">
-      <select id="empDeptFilter"><option value="">ทุกกลุ่มงาน</option>${[...new Set(state.employees.map(e=>e.department).filter(Boolean))].map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('')}</select>
-    </div>
-    <div class="table-wrap"><table class="reg" id="empTable">
-      <thead><tr>
-        <th class="rownum">#</th><th class="num">รหัส</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th>
-        <th>กลุ่มงาน</th><th class="num">อายุ</th><th class="num">วันเกษียณ</th><th>จัดการ</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table></div>
-  </div>`;
+  <div class="searchbar">
+    <input type="text" id="empSearch" placeholder="ค้นหาชื่อ / รหัส / ตำแหน่ง">
+    <select id="empDeptFilter"><option value="">ทุกสังกัด</option>${[...new Set(state.employees.map(e=>e.department).filter(Boolean))].sort((a,b)=>deptSortKey(a)-deptSortKey(b)).map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('')}</select>
+  </div>
+  <div id="empGroups"></div>`;
 }
 
 function employeeRows(){
@@ -1094,32 +1226,62 @@ function employeeRows(){
   });
 }
 
+function groupEmployeesByDept(rows){
+  const groups = {};
+  rows.forEach(e=>{
+    const d = e.department || 'ไม่ระบุสังกัด';
+    if(!groups[d]) groups[d] = [];
+    groups[d].push(e);
+  });
+  return Object.keys(groups)
+    .sort((a,b)=> deptSortKey(a)-deptSortKey(b) || a.localeCompare(b,'th'))
+    .map(d=>({ dept: d, list: groups[d] }));
+}
+
 function renderEmployeeTable(){
-  const tbody = document.querySelector('#empTable tbody');
-  if(!tbody) return;
+  const root = document.getElementById('empGroups');
+  if(!root) return;
   const rows = employeeRows();
-  tbody.innerHTML = rows.length ? rows.map((e,i)=>`
-    <tr class="row-clickable" data-emp-id="${e.id}">
-      <td class="rownum">${i+1}</td>
-      <td class="num">${esc(e.code)}</td>
-      <td>${avatarHtml(e,28)} <span style="margin-left:8px;">${esc(e.name)}</span></td>
-      <td>${esc(e.position)}</td>
-      <td>${esc(e.department)}</td>
-      <td class="num">${ageFromDate(e.birthDate)}</td>
-      <td class="num">${buddhistDate(e.retireDate)}</td>
-      <td>
-        <button class="btn btn-sm" data-edit-emp="${e.id}">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" data-del-emp="${e.id}">ลบ</button>
-      </td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="8">ยังไม่มีข้อมูลพนักงาน ลองเพิ่มพนักงานคนแรก</td></tr>`;
-  tbody.querySelectorAll('tr[data-emp-id]').forEach(tr=>{
+  if(rows.length === 0){
+    root.innerHTML = `<div class="panel"><table class="reg"><tbody><tr class="empty-row"><td>ยังไม่มีข้อมูลพนักงานที่ตรงกับเงื่อนไข</td></tr></tbody></table></div>`;
+    return;
+  }
+  const groups = groupEmployeesByDept(rows);
+  root.innerHTML = groups.map(g => `
+    <div class="panel dept-box">
+      <h2>${esc(g.dept)} <span class="dept-count">${g.list.length} คน</span></h2>
+      <div class="table-wrap"><table class="reg">
+        <thead><tr>
+          <th class="rownum">#</th><th class="num">รหัส</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th>
+          <th class="num">อายุ</th><th class="num">วันเกษียณ</th><th>จัดการ</th>
+        </tr></thead>
+        <tbody>
+          ${g.list.map((e,i)=>`
+          <tr class="row-clickable" data-emp-id="${e.id}">
+            <td class="rownum">${i+1}</td>
+            <td class="num">${esc(e.code)}</td>
+            <td>${avatarHtml(e,28)} <span style="margin-left:8px;">${esc(e.name)}</span></td>
+            <td>${esc(e.position)}</td>
+            <td class="num">${ageFromDate(e.birthDate)}</td>
+            <td class="num">${buddhistDate(e.retireDate)}</td>
+            <td>
+              <button class="btn btn-sm" data-edit-emp="${e.id}">แก้ไข</button>
+              <button class="btn btn-sm btn-danger" data-del-emp="${e.id}">ลบ</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  `).join('');
+
+  root.querySelectorAll('tr[data-emp-id]').forEach(tr=>{
     tr.addEventListener('click', (e)=>{
       if(e.target.closest('button')) return;
       openEmployeeDetailModal(tr.dataset.empId);
     });
   });
-  tbody.querySelectorAll('[data-edit-emp]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openEmployeeModal(b.dataset.editEmp); }));
-  tbody.querySelectorAll('[data-del-emp]').forEach(b=>b.addEventListener('click', (e)=>{
+  root.querySelectorAll('[data-edit-emp]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openEmployeeModal(b.dataset.editEmp); }));
+  root.querySelectorAll('[data-del-emp]').forEach(b=>b.addEventListener('click', (e)=>{
     e.stopPropagation();
     if(confirm('ยืนยันลบข้อมูลพนักงานนี้?')) crudDelete('employees', b.dataset.delEmp);
   }));
@@ -1259,11 +1421,12 @@ function viewLeaves(){
     <div class="searchbar">
       <input type="text" id="leaveSearch" placeholder="ค้นหาชื่อพนักงาน">
       <select id="leaveTypeFilter"><option value="">ทุกประเภท</option><option value="ป">ลาป่วย</option><option value="พ">ลาพักผ่อน</option><option value="ก">ลากิจ</option></select>
+      <select id="leaveStatusFilter"><option value="">ทุกสถานะ</option><option value="pending">รออนุมัติ</option><option value="approved">อนุมัติแล้ว</option><option value="rejected">ไม่อนุมัติ</option></select>
     </div>
     <div class="table-wrap"><table class="reg" id="leaveTable">
       <thead><tr>
         <th class="rownum">#</th><th class="num">วันที่ยื่น</th><th>ชื่อพนักงาน</th><th>ประเภท</th>
-        <th class="num">ลาตั้งแต่</th><th class="num">ถึงวันที่</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>จัดการ</th>
+        <th class="num">ลาตั้งแต่</th><th class="num">ถึงวันที่</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>สถานะอนุมัติ</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -1273,8 +1436,9 @@ function viewLeaves(){
 function leaveRows(){
   const q = (document.getElementById('leaveSearch')?.value||'').trim().toLowerCase();
   const type = document.getElementById('leaveTypeFilter')?.value||'';
+  const status = document.getElementById('leaveStatusFilter')?.value||'';
   return [...state.leaves]
-    .filter(l=>(!q || String(l.employeeName||'').toLowerCase().includes(q)) && (!type || l.leaveType===type))
+    .filter(l=>(!q || String(l.employeeName||'').toLowerCase().includes(q)) && (!type || l.leaveType===type) && (!status || (l.approvalStatus||'approved')===status))
     .sort((a,b)=> new Date(b.startDate||0) - new Date(a.startDate||0));
 }
 
@@ -1292,15 +1456,18 @@ function renderLeaveTable(){
       <td class="num">${buddhistDate(l.endDate)}</td>
       <td class="num">${l.days}</td>
       <td>${esc(l.reason)}</td>
-      <td>
+      <td>${approvalTag(l)}</td>
+      <td style="white-space:nowrap;">
         <button class="btn btn-sm" data-edit-leave="${l.id}">แก้ไข</button>
         <button class="btn btn-sm btn-danger" data-del-leave="${l.id}">ลบ</button>
+        ${approvalActionsHtml('leaves', l)}
       </td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="9">ยังไม่มีรายการลา</td></tr>`;
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="10">ยังไม่มีรายการลา</td></tr>`;
   tbody.querySelectorAll('[data-edit-leave]').forEach(b=>b.addEventListener('click', ()=>openLeaveModal(b.dataset.editLeave)));
   tbody.querySelectorAll('[data-del-leave]').forEach(b=>b.addEventListener('click', ()=>{
     if(confirm('ยืนยันลบรายการลานี้?')) crudDelete('leaves', b.dataset.delLeave);
   }));
+  bindApprovalButtons(tbody);
 }
 
 function empOptionsHtml(selectedId){
@@ -1354,7 +1521,8 @@ function openLeaveModal(id){
       leaveType: document.getElementById('f_type').value,
       startDate: toDateOnly(start), endDate: toDateOnly(end), days,
       reason: document.getElementById('f_reason').value.trim(),
-      note: document.getElementById('f_note').value.trim()
+      note: document.getElementById('f_note').value.trim(),
+      approvalStatus: rec ? (rec.approvalStatus||'approved') : (state.isAdmin?'approved':'pending')
     };
     closeModal();
     if(rec) crudUpdate('leaves', data); else crudAdd('leaves', data);
@@ -1372,11 +1540,12 @@ function viewLoans(){
     <div class="searchbar">
       <input type="text" id="loanSearch" placeholder="ค้นหาชื่อพนักงาน / เลขที่คำร้อง">
       <select id="loanStatusFilter"><option value="">ทุกสถานะ</option><option value="active">กำลังผ่อน</option><option value="closed">ปิดบัญชีแล้ว</option></select>
+      <select id="loanApprovalFilter"><option value="">ทุกการอนุมัติ</option><option value="pending">รออนุมัติ</option><option value="approved">อนุมัติแล้ว</option><option value="rejected">ไม่อนุมัติ</option></select>
     </div>
     <div class="table-wrap"><table class="reg" id="loanTable">
       <thead><tr>
         <th class="rownum">#</th><th class="num">เลขที่คำร้อง</th><th>พนักงาน</th><th>ประเภท</th>
-        <th class="num">วงเงินอนุมัติ</th><th class="num">ผ่อนแล้ว</th><th class="num">คงเหลือ</th><th>สถานะ</th><th>จัดการ</th>
+        <th class="num">วงเงินอนุมัติ</th><th class="num">ผ่อนแล้ว</th><th class="num">คงเหลือ</th><th>สถานะ</th><th>อนุมัติ</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -1391,8 +1560,9 @@ function loanRemaining(l){
 function loanRows(){
   const q = (document.getElementById('loanSearch')?.value||'').trim().toLowerCase();
   const status = document.getElementById('loanStatusFilter')?.value||'';
+  const approval = document.getElementById('loanApprovalFilter')?.value||'';
   return [...state.loans]
-    .filter(l=>(!q || [l.employeeName,l.requestNo].some(v=>String(v||'').toLowerCase().includes(q))) && (!status || (l.status||'active')===status))
+    .filter(l=>(!q || [l.employeeName,l.requestNo].some(v=>String(v||'').toLowerCase().includes(q))) && (!status || (l.status||'active')===status) && (!approval || (l.approvalStatus||'approved')===approval))
     .sort((a,b)=> new Date(b.submitDate||0) - new Date(a.submitDate||0));
 }
 
@@ -1413,16 +1583,19 @@ function renderLoanTable(){
       <td class="num">${money(Number(l.paidInstallments||0)*Number(l.installment||0))}</td>
       <td class="num">${money(remaining)}</td>
       <td>${status==='closed'?'<span class="tag tag-green">ปิดบัญชีแล้ว</span>':'<span class="tag tag-amber">กำลังผ่อน</span>'}</td>
-      <td>
+      <td>${approvalTag(l)}</td>
+      <td style="white-space:nowrap;">
         <button class="btn btn-sm" data-edit-loan="${l.id}">แก้ไข</button>
         <button class="btn btn-sm btn-danger" data-del-loan="${l.id}">ลบ</button>
+        ${approvalActionsHtml('loans', l)}
       </td>
     </tr>`;
-  }).join('') : `<tr class="empty-row"><td colspan="9">ยังไม่มีรายการเงินกู้</td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="10">ยังไม่มีรายการเงินกู้</td></tr>`;
   tbody.querySelectorAll('[data-edit-loan]').forEach(b=>b.addEventListener('click', ()=>openLoanModal(b.dataset.editLoan)));
   tbody.querySelectorAll('[data-del-loan]').forEach(b=>b.addEventListener('click', ()=>{
     if(confirm('ยืนยันลบรายการเงินกู้นี้?')) crudDelete('loans', b.dataset.delLoan);
   }));
+  bindApprovalButtons(tbody);
 }
 
 function loanFormHtml(rec){
@@ -1473,7 +1646,8 @@ function openLoanModal(id){
       paidInstallments: Number(document.getElementById('f_paid').value||0),
       guarantor: document.getElementById('f_guarantor').value.trim(),
       status: document.getElementById('f_status').value,
-      note: document.getElementById('f_note').value.trim()
+      note: document.getElementById('f_note').value.trim(),
+      approvalStatus: rec ? (rec.approvalStatus||'approved') : (state.isAdmin?'approved':'pending')
     };
     closeModal();
     if(rec) crudUpdate('loans', data); else crudAdd('loans', data);
@@ -1491,11 +1665,12 @@ function viewWelfare(){
     <div class="searchbar">
       <input type="text" id="welfSearch" placeholder="ค้นหาชื่อพนักงาน">
       <select id="welfCatFilter"><option value="">ทุกหมวด</option>${WELFARE_CATS.map(c=>`<option value="${esc(c.label)}">${esc(c.label)}</option>`).join('')}</select>
+      <select id="welfApprovalFilter"><option value="">ทุกการอนุมัติ</option><option value="pending">รออนุมัติ</option><option value="approved">อนุมัติแล้ว</option><option value="rejected">ไม่อนุมัติ</option></select>
     </div>
     <div class="table-wrap"><table class="reg" id="welfTable">
       <thead><tr>
         <th class="rownum">#</th><th class="num">วันที่ยื่นเบิก</th><th>พนักงาน</th><th>หมวดหมู่</th>
-        <th>สถานพยาบาล</th><th class="num">ยอดใบเสร็จ</th><th class="num">ปกส.จ่าย</th><th class="num">อนุมัติเบิก</th><th>จัดการ</th>
+        <th>สถานพยาบาล</th><th class="num">ยอดใบเสร็จ</th><th class="num">ปกส.จ่าย</th><th class="num">อนุมัติเบิก</th><th>สถานะอนุมัติ</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -1505,8 +1680,9 @@ function viewWelfare(){
 function welfareRows(){
   const q = (document.getElementById('welfSearch')?.value||'').trim().toLowerCase();
   const cat = document.getElementById('welfCatFilter')?.value||'';
+  const approval = document.getElementById('welfApprovalFilter')?.value||'';
   return [...state.welfare]
-    .filter(w=>(!q || String(w.employeeName||'').toLowerCase().includes(q)) && (!cat || w.category===cat))
+    .filter(w=>(!q || String(w.employeeName||'').toLowerCase().includes(q)) && (!cat || w.category===cat) && (!approval || (w.approvalStatus||'approved')===approval))
     .sort((a,b)=> new Date(b.submitDate||0) - new Date(a.submitDate||0));
 }
 
@@ -1524,15 +1700,18 @@ function renderWelfareTable(){
       <td class="num">${money(w.receiptAmount)}</td>
       <td class="num">${money(w.ssoPaid)}</td>
       <td class="num">${money(w.approvedAmount)}</td>
-      <td>
+      <td>${approvalTag(w)}</td>
+      <td style="white-space:nowrap;">
         <button class="btn btn-sm" data-edit-welf="${w.id}">แก้ไข</button>
         <button class="btn btn-sm btn-danger" data-del-welf="${w.id}">ลบ</button>
+        ${approvalActionsHtml('welfare', w)}
       </td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="9">ยังไม่มีรายการเบิกสวัสดิการ</td></tr>`;
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="10">ยังไม่มีรายการเบิกสวัสดิการ</td></tr>`;
   tbody.querySelectorAll('[data-edit-welf]').forEach(b=>b.addEventListener('click', ()=>openWelfareModal(b.dataset.editWelf)));
   tbody.querySelectorAll('[data-del-welf]').forEach(b=>b.addEventListener('click', ()=>{
     if(confirm('ยืนยันลบรายการนี้?')) crudDelete('welfare', b.dataset.delWelf);
   }));
+  bindApprovalButtons(tbody);
 }
 
 function welfareFormHtml(rec){
@@ -1579,7 +1758,8 @@ function openWelfareModal(id){
       receiptAmount: receipt, ssoPaid: sso, approvedAmount: approved,
       beneficiaryName: emp? emp.name : '', relation: 'ตนเอง',
       requestNo: document.getElementById('f_reqno').value.trim(),
-      note: document.getElementById('f_note').value.trim()
+      note: document.getElementById('f_note').value.trim(),
+      approvalStatus: rec ? (rec.approvalStatus||'approved') : (state.isAdmin?'approved':'pending')
     };
     closeModal();
     if(rec) crudUpdate('welfare', data); else crudAdd('welfare', data);
@@ -1591,7 +1771,7 @@ function computeEmployeeSummary(empId){
   const emp = employeeById(empId);
   if(!emp) return null;
   const fy = fiscalYearRange();
-  const leaves = state.leaves.filter(l=>l.employeeId===empId && l.startDate && inRange(l.startDate, fy.start, fy.end));
+  const leaves = state.leaves.filter(l=>l.employeeId===empId && l.startDate && inRange(l.startDate, fy.start, fy.end) && isApproved(l));
   const used = {'ป':0,'พ':0,'ก':0};
   leaves.forEach(l=>{ if(used[l.leaveType]!==undefined) used[l.leaveType]+=Number(l.days||0); });
   const leaveSummary = [
@@ -1600,7 +1780,7 @@ function computeEmployeeSummary(empId){
     {label:'ลากิจ', right:safeNum(emp.personalRight), carry:safeNum(emp.carryPersonal), used:used['ก']}
   ].map(r=>({...r, total:r.right+r.carry, remaining:r.right+r.carry-r.used}));
 
-  const loans = state.loans.filter(l=>l.employeeId===empId);
+  const loans = state.loans.filter(l=>l.employeeId===empId && isApproved(l));
   const loanSummary = LOAN_TYPES.map(type=>{
     const active = loans.filter(l=>l.loanType===type && (l.status||'active')==='active');
     const current = active.reduce((s,l)=>s+loanRemaining(l),0);
@@ -1608,7 +1788,7 @@ function computeEmployeeSummary(empId){
     return {label:type, limit, current};
   });
 
-  const welfare = state.welfare.filter(w=>w.employeeId===empId && w.submitDate && inRange(w.submitDate, fy.start, fy.end));
+  const welfare = state.welfare.filter(w=>w.employeeId===empId && w.submitDate && inRange(w.submitDate, fy.start, fy.end) && isApproved(w));
   const welfareSummary = WELFARE_CATS.map(c=>{
     const usedAmt = welfare.filter(w=>w.category===c.label).reduce((s,w)=>s+Number(w.approvedAmount||0),0);
     const limit = safeNum(emp[c.limitField]);
@@ -1826,6 +2006,18 @@ function viewSettings(){
       หากเคยนำเข้าชุด 35 คนไปแล้ว การนำเข้าชุด 133 คนเพิ่มจะทำให้มีชื่อซ้ำกันบางส่วน แนะนำให้ตรวจสอบและลบรายการซ้ำที่หน้า "ข้อมูลพนักงาน" หลังนำเข้า
     </div>
   </div>
+
+  <div class="panel">
+    <h2>6. สิทธิ์แอดมิน (อนุมัติวันลา / เงินกู้ / สวัสดิการ)</h2>
+    <div style="font-size:13.5px; color:var(--ink-soft); margin-bottom:12px;">
+      ตั้งรหัส PIN สำหรับเข้าโหมดแอดมิน เมื่ออยู่ในโหมดแอดมินจะสามารถกดอนุมัติ/ไม่อนุมัติรายการวันลา เงินกู้ และสวัสดิการที่พนักงานยื่นเข้ามาได้ สลับโหมดได้จากมุมล่างซ้ายของแถบเมนู
+    </div>
+    <div class="setting-row">
+      <input type="password" id="adminPinSetting" placeholder="ตั้งรหัส PIN ใหม่" value="">
+      <button class="btn btn-primary" id="btnSaveAdminPin">บันทึกรหัส PIN</button>
+    </div>
+    <div class="muted" style="font-size:12px;">รหัส PIN ปัจจุบัน: ${state.settings.adminPin ? '•'.repeat(state.settings.adminPin.length) : 'ยังไม่ได้ตั้งค่า (ค่าเริ่มต้น 1234)'}</div>
+  </div>
   `;
 }
 
@@ -1894,6 +2086,7 @@ function closeModal(){
 function bindViewEvents(v){
   if(v==='dashboard'){
     document.getElementById('btnSyncTop')?.addEventListener('click', ()=>syncFromSheet(true));
+    bindApprovalButtons(document.getElementById('viewRoot'));
   }
   else if(v==='employees'){
     document.getElementById('btnAddEmp')?.addEventListener('click', ()=>openEmployeeModal(null));
@@ -1905,18 +2098,21 @@ function bindViewEvents(v){
     document.getElementById('btnAddLeave')?.addEventListener('click', ()=>openLeaveModal(null));
     document.getElementById('leaveSearch')?.addEventListener('input', renderLeaveTable);
     document.getElementById('leaveTypeFilter')?.addEventListener('change', renderLeaveTable);
+    document.getElementById('leaveStatusFilter')?.addEventListener('change', renderLeaveTable);
     renderLeaveTable();
   }
   else if(v==='loans'){
     document.getElementById('btnAddLoan')?.addEventListener('click', ()=>openLoanModal(null));
     document.getElementById('loanSearch')?.addEventListener('input', renderLoanTable);
     document.getElementById('loanStatusFilter')?.addEventListener('change', renderLoanTable);
+    document.getElementById('loanApprovalFilter')?.addEventListener('change', renderLoanTable);
     renderLoanTable();
   }
   else if(v==='welfare'){
     document.getElementById('btnAddWelfare')?.addEventListener('click', ()=>openWelfareModal(null));
     document.getElementById('welfSearch')?.addEventListener('input', renderWelfareTable);
     document.getElementById('welfCatFilter')?.addEventListener('change', renderWelfareTable);
+    document.getElementById('welfApprovalFilter')?.addEventListener('change', renderWelfareTable);
     renderWelfareTable();
   }
   else if(v==='reports'){
@@ -1955,6 +2151,14 @@ function bindViewEvents(v){
     });
     document.getElementById('btnImportSeed')?.addEventListener('click', importSeedData);
     document.getElementById('btnImportSeed2569')?.addEventListener('click', ()=>importSeedDataGeneric(SEED_DATA_2569, 'ทะเบียนพนักงานล่าสุด 133 คน'));
+    document.getElementById('btnSaveAdminPin')?.addEventListener('click', async ()=>{
+      const val = document.getElementById('adminPinSetting').value.trim();
+      if(!val){ toast('กรุณากรอกรหัส PIN'); return; }
+      state.settings.adminPin = val;
+      await saveSettings();
+      toast('บันทึกรหัส PIN แอดมินแล้ว');
+      renderView();
+    });
     document.getElementById('btnSaveCloudinary')?.addEventListener('click', async ()=>{
       state.settings.cloudinaryCloud = document.getElementById('cldCloud').value.trim();
       state.settings.cloudinaryPreset = document.getElementById('cldPreset').value.trim();
@@ -1994,6 +2198,7 @@ function bindViewEvents(v){
 /* ================= BOOTSTRAP ================= */
 async function init(){
   await loadPersisted();
+  try{ if(sessionStorage.getItem('hr_is_admin')==='1') state.isAdmin = true; }catch(e){}
   renderBrand();
   renderNav();
   renderView();
