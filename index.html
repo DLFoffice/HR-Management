@@ -217,15 +217,25 @@ nav.navlist{padding:16px 12px; flex:1;}
 .panel h2{
   font-size:15.5px; font-weight:700; color:var(--ink);
   margin:0 0 14px; padding-bottom:12px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px;
+}
+.panel h2::before{
+  content:''; width:9px; height:9px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg, var(--lav) 0%, var(--mint) 100%);
+  box-shadow:0 0 0 4px var(--lav-bg);
 }
 
 /* ---------- Tables ---------- */
 table.reg{width:100%; border-collapse:collapse; font-size:13.5px;}
 table.reg th{
-  text-align:right; font-weight:600; color:var(--lav-deep);
-  padding:10px 12px; border-bottom:2px solid var(--line);
-  font-size:12.5px; white-space:nowrap;
+  text-align:left; font-weight:700; color:var(--lav-deep);
+  padding:10px 12px; border-bottom:2px solid var(--line-strong);
+  font-size:12px; white-space:nowrap;
+  background:var(--lav-bg);
+  text-transform:uppercase; letter-spacing:.3px;
 }
+table.reg thead tr th:first-child{border-top-left-radius:10px; border-bottom-left-radius:10px;}
+table.reg thead tr th:last-child{border-top-right-radius:10px; border-bottom-right-radius:10px;}
 table.reg td{
   padding:10px 12px; border-bottom:1px solid var(--line);
   vertical-align:middle;
@@ -233,8 +243,8 @@ table.reg td{
 table.reg tbody tr{transition:background .18s var(--ease);}
 table.reg tbody tr:hover{background:var(--lav-bg);}
 table.reg tbody tr.row-clickable{cursor:pointer;}
-table.reg .num{font-variant-numeric:tabular-nums; text-align:left;}
-table.reg .rownum{color:var(--ink-faint); font-size:12px; width:30px; text-align:left;}
+table.reg th.num, table.reg td.num{font-variant-numeric:tabular-nums; text-align:right;}
+table.reg th.rownum, table.reg td.rownum{color:var(--ink-faint); font-size:12px; width:30px; text-align:left;}
 .table-wrap{overflow-x:auto;}
 .empty-row td{text-align:center; color:var(--ink-soft); padding:30px; font-size:13.5px;}
 
@@ -330,7 +340,8 @@ code.inline{background:var(--lav-bg); color:var(--lav-deep); padding:2px 7px; bo
 .doc-header .title{font-size:19px; font-weight:700; color:var(--ink); margin-top:4px;}
 .doc-meta{display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; font-size:13.5px; margin-bottom:18px;}
 .doc-meta div span.k{color:var(--ink-soft);}
-.doc-section-title{font-size:14px; font-weight:700; color:var(--ink); margin:18px 0 8px; border-bottom:1px solid var(--line-strong); padding-bottom:5px;}
+.doc-section-title{font-size:14px; font-weight:700; color:var(--lav-deep); margin:18px 0 8px; border-bottom:2px solid var(--lav-bg); padding-bottom:5px; display:flex; align-items:center; gap:8px;}
+.doc-section-title::before{content:''; width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,var(--lav),var(--mint)); flex-shrink:0;}
 
 .pill-nav{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;}
 .pill-nav button{
@@ -346,8 +357,56 @@ code.inline{background:var(--lav-bg); color:var(--lav-deep); padding:2px 7px; bo
 .pbar > div{height:100%; border-radius:999px; transition:width .6s var(--ease); background:linear-gradient(90deg,var(--lav),var(--mint));}
 
 .muted{color:var(--ink-soft);}
-.right{text-align:left;}
 .hidden{display:none !important;}
+
+/* ---------- Thai date picker ---------- */
+.tdate-field{position:relative; display:flex; align-items:center;}
+.tdate-display{
+  width:100%; border:1px solid var(--line-strong); border-radius:11px;
+  padding:9px 36px 9px 12px; font-size:14px; background:#FBFAFF; color:var(--ink);
+  cursor:pointer; transition:border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.tdate-display::placeholder{color:var(--ink-faint);}
+.tdate-display:focus, .tdate-field.open .tdate-display{
+  outline:none; border-color:var(--lav-2); box-shadow:0 0 0 3px var(--lav-bg); background:#fff;
+}
+.tdate-icon{
+  position:absolute; left:11px; top:50%; transform:translateY(-50%);
+  font-size:14px; color:var(--lav-2); pointer-events:none; cursor:pointer;
+}
+.tdate-panel{
+  background:#fff; border:1px solid var(--line-strong); border-radius:16px;
+  box-shadow:0 20px 46px rgba(60,40,140,0.24);
+  padding:14px; width:280px;
+  animation:modalIn .18s var(--ease);
+}
+.tdate-header{display:flex; align-items:center; gap:6px; margin-bottom:10px;}
+.tdate-header select{
+  border:1px solid var(--line-strong); border-radius:8px; padding:5px 6px; font-size:12.5px;
+  background:#FBFAFF; color:var(--ink); flex:1;
+}
+.tdate-nav{
+  border:1px solid var(--line-strong); background:#fff; border-radius:8px;
+  width:26px; height:26px; flex-shrink:0; cursor:pointer; color:var(--lav-deep);
+  font-size:14px; display:flex; align-items:center; justify-content:center;
+  transition:background .18s var(--ease);
+}
+.tdate-nav:hover{background:var(--lav-bg);}
+.tdate-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;}
+.tdate-grid-head{margin-bottom:4px;}
+.tdate-dayname{font-size:11px; color:var(--ink-faint); font-weight:600; padding:4px 0;}
+.tdate-day{
+  font-size:13px; padding:7px 0; border-radius:8px; cursor:pointer; color:var(--ink);
+  transition:background .15s var(--ease), color .15s var(--ease);
+}
+.tdate-day:hover{background:var(--lav-bg); color:var(--lav-deep);}
+.tdate-muted{color:var(--ink-faint); opacity:.55;}
+.tdate-today-mark{font-weight:700; color:var(--lav-deep); box-shadow:inset 0 0 0 1.5px var(--lav-2);}
+.tdate-selected{background:linear-gradient(135deg,var(--lav),var(--lav-2)); color:#fff !important; font-weight:700;}
+.tdate-selected:hover{background:linear-gradient(135deg,var(--lav),var(--lav-2)); color:#fff;}
+.tdate-footer{display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+.tdate-link{background:none; border:none; color:var(--lav-deep); font-size:12.5px; cursor:pointer; font-weight:600; padding:4px 6px;}
+.tdate-link:hover{text-decoration:underline;}
 
 @media(max-width:900px){
   #sidebar{width:210px;}
@@ -418,7 +477,7 @@ let state = {
   leaves: [],
   loans: [],
   welfare: [],
-  settings: { gasUrl: '', cloudinaryCloud: '', cloudinaryPreset: '', logoUrl: 'https://dltv.ac.th/upload/data/users/0/316/CMS/images/logo%20dlf%20%E0%B8%AA%E0%B8%A1%E0%B8%9A%E0%B8%B9%E0%B8%A3%E0%B8%93%E0%B9%8C.png' },
+  settings: { gasUrl: 'https://script.google.com/macros/s/AKfycbzNLg0fI-yJop5QG_GCXHBKCZMRDj0DbNRcFue82zFDxP1S5X2_xVZtadMwWxTCb_3M/exec', cloudinaryCloud: 'deyqenuv3', cloudinaryPreset: 'Picstaff', logoUrl: 'https://dltv.ac.th/upload/data/users/0/316/CMS/images/logo%20dlf%20%E0%B8%AA%E0%B8%A1%E0%B8%9A%E0%B8%B9%E0%B8%A3%E0%B8%93%E0%B9%8C.png' },
   lastSync: null,
   currentView: 'dashboard'
 };
@@ -648,6 +707,12 @@ function money(n){
   n = Number(n)||0;
   return n.toLocaleString('th-TH',{maximumFractionDigits:2});
 }
+function safeNum(v){
+  if(v===undefined || v===null || v==='') return 0;
+  if(typeof v==='number') return isNaN(v) ? 0 : v;
+  const m = String(v).match(/-?\d+(\.\d+)?/);
+  return m ? Number(m[0]) : 0;
+}
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 function fiscalYearRange(ref){
@@ -684,6 +749,144 @@ function renderBrand(){
   } else {
     seal.textContent = 'บค';
   }
+}
+
+/* ---------------- Thai date picker component ---------------- */
+const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const THAI_DAYS_SHORT = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+let __tdateOpenPanel = null;
+let __tdateOpenField = null;
+
+function thaiDateFieldHtml(id, isoValue, placeholder){
+  const label = isoValue ? buddhistDate(isoValue) : '';
+  return `<div class="tdate-field" data-field-for="${id}">
+    <input type="hidden" id="${id}" value="${esc(isoValue||'')}">
+    <input type="text" class="tdate-display" readonly placeholder="${esc(placeholder||'เลือกวันที่')}" value="${esc(label)}">
+    <span class="tdate-icon">📅</span>
+  </div>`;
+}
+
+function initThaiDatePickers(root){
+  (root||document).querySelectorAll('.tdate-field').forEach(field=>{
+    const hidden = field.querySelector('input[type=hidden]');
+    const display = field.querySelector('.tdate-display');
+    const openFn = (e)=>{ e.stopPropagation(); toggleDatePickerPanel(field, hidden, display); };
+    display.addEventListener('click', openFn);
+    field.querySelector('.tdate-icon').addEventListener('click', openFn);
+  });
+}
+
+function toggleDatePickerPanel(field, hidden, display){
+  if(__tdateOpenField === field){ closeAnyDatePicker(); return; }
+  closeAnyDatePicker();
+  const current = hidden.value ? new Date(hidden.value+'T00:00:00') : new Date();
+  let viewYear = current.getFullYear();
+  let viewMonth = current.getMonth();
+
+  const panel = document.createElement('div');
+  panel.className = 'tdate-panel';
+  panel.style.position = 'fixed';
+  panel.style.zIndex = 400;
+  document.body.appendChild(panel);
+  field.classList.add('open');
+
+  function render(){
+    panel.innerHTML = buildCalendarHtml(viewYear, viewMonth, hidden.value);
+    panel.querySelector('.tdate-prev').onclick=(e)=>{e.stopPropagation(); viewMonth--; if(viewMonth<0){viewMonth=11; viewYear--;} render();};
+    panel.querySelector('.tdate-next').onclick=(e)=>{e.stopPropagation(); viewMonth++; if(viewMonth>11){viewMonth=0; viewYear++;} render();};
+    panel.querySelector('.tdate-month-select').onchange=(e)=>{ e.stopPropagation(); viewMonth=Number(e.target.value); render();};
+    panel.querySelector('.tdate-year-select').onchange=(e)=>{ e.stopPropagation(); viewYear=Number(e.target.value); render();};
+    panel.querySelectorAll('.tdate-day[data-date]').forEach(d=>{
+      d.onclick=(e)=>{
+        e.stopPropagation();
+        hidden.value = d.dataset.date;
+        display.value = buddhistDate(d.dataset.date);
+        hidden.dispatchEvent(new Event('change', {bubbles:true}));
+        closeAnyDatePicker();
+      };
+    });
+    panel.querySelector('.tdate-today').onclick=(e)=>{
+      e.stopPropagation();
+      const t = todayStr();
+      hidden.value = t; display.value = buddhistDate(t);
+      hidden.dispatchEvent(new Event('change', {bubbles:true}));
+      closeAnyDatePicker();
+    };
+    panel.querySelector('.tdate-clear').onclick=(e)=>{
+      e.stopPropagation();
+      hidden.value = ''; display.value = '';
+      hidden.dispatchEvent(new Event('change', {bubbles:true}));
+      closeAnyDatePicker();
+    };
+    panel.querySelectorAll('select').forEach(s=>s.addEventListener('click', e=>e.stopPropagation()));
+  }
+  render();
+
+  const rect = field.getBoundingClientRect();
+  const panelW = 280;
+  let left = rect.left;
+  if(left + panelW > window.innerWidth - 10) left = window.innerWidth - panelW - 10;
+  let top = rect.bottom + 6;
+  if(top + 340 > window.innerHeight){ top = Math.max(rect.top - 346, 10); }
+  panel.style.left = left+'px';
+  panel.style.top = top+'px';
+
+  __tdateOpenPanel = panel;
+  __tdateOpenField = field;
+  setTimeout(()=> document.addEventListener('mousedown', tdateOutsideClick), 0);
+}
+
+function tdateOutsideClick(e){
+  if(__tdateOpenPanel && !__tdateOpenPanel.contains(e.target) && !(__tdateOpenField && __tdateOpenField.contains(e.target))){
+    closeAnyDatePicker();
+  }
+}
+function closeAnyDatePicker(){
+  if(__tdateOpenPanel){ __tdateOpenPanel.remove(); __tdateOpenPanel=null; }
+  if(__tdateOpenField){ __tdateOpenField.classList.remove('open'); __tdateOpenField=null; }
+  document.removeEventListener('mousedown', tdateOutsideClick);
+}
+
+function buildCalendarHtml(year, month, selectedIso){
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  let cells = '';
+  for(let i=0;i<firstDay;i++){
+    const d = daysInPrevMonth - firstDay + 1 + i;
+    cells += `<div class="tdate-day tdate-muted">${d}</div>`;
+  }
+  const todayIso = todayStr();
+  for(let d=1; d<=daysInMonth; d++){
+    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cls = ['tdate-day'];
+    if(iso===selectedIso) cls.push('tdate-selected');
+    else if(iso===todayIso) cls.push('tdate-today-mark');
+    cells += `<div class="${cls.join(' ')}" data-date="${iso}">${d}</div>`;
+  }
+  const totalCells = firstDay+daysInMonth;
+  const trailing = (7-(totalCells%7))%7;
+  for(let i=1;i<=trailing;i++) cells += `<div class="tdate-day tdate-muted">${i}</div>`;
+
+  const nowY = new Date().getFullYear();
+  let yearOptions = '';
+  for(let y=nowY+5; y>=nowY-95; y--){
+    yearOptions += `<option value="${y}" ${y===year?'selected':''}>${y+543}</option>`;
+  }
+  const monthOptions = THAI_MONTHS_FULL.map((m,i)=>`<option value="${i}" ${i===month?'selected':''}>${m}</option>`).join('');
+  return `
+  <div class="tdate-header">
+    <button type="button" class="tdate-nav tdate-prev">‹</button>
+    <select class="tdate-month-select">${monthOptions}</select>
+    <select class="tdate-year-select">${yearOptions}</select>
+    <button type="button" class="tdate-nav tdate-next">›</button>
+  </div>
+  <div class="tdate-grid tdate-grid-head">${THAI_DAYS_SHORT.map(d=>`<div class="tdate-dayname">${d}</div>`).join('')}</div>
+  <div class="tdate-grid">${cells}</div>
+  <div class="tdate-footer">
+    <button type="button" class="tdate-link tdate-clear">ล้าง</button>
+    <button type="button" class="tdate-link tdate-today">วันนี้</button>
+  </div>`;
 }
 
 /* ---------------- Navigation ---------------- */
@@ -862,8 +1065,8 @@ function viewEmployees(){
     </div>
     <div class="table-wrap"><table class="reg" id="empTable">
       <thead><tr>
-        <th class="rownum">#</th><th class="right">รหัส</th><th class="right">ชื่อ-นามสกุล</th><th class="right">ตำแหน่ง</th>
-        <th class="right">กลุ่มงาน</th><th class="right">อายุ</th><th class="right">วันเกษียณ</th><th class="right">จัดการ</th>
+        <th class="rownum">#</th><th class="num">รหัส</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th>
+        <th>กลุ่มงาน</th><th class="num">อายุ</th><th class="num">วันเกษียณ</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -930,9 +1133,9 @@ function employeeFormHtml(emp){
     <div class="field"><label>ชื่อ - นามสกุล *</label><input id="f_name" value="${esc(e.name)}"></div>
     <div class="field"><label>ตำแหน่ง</label><input id="f_position" value="${esc(e.position)}"></div>
     <div class="field"><label>กลุ่ม/กลุ่มงาน</label><input id="f_department" value="${esc(e.department)}"></div>
-    <div class="field"><label>วันเดือนปีเกิด</label><input type="date" id="f_birthDate" value="${esc(e.birthDate)}"></div>
-    <div class="field"><label>วันเข้าทำงาน</label><input type="date" id="f_hireDate" value="${esc(e.hireDate)}"></div>
-    <div class="field"><label>วันเกษียณอายุ</label><input type="date" id="f_retireDate" value="${esc(e.retireDate)}"></div>
+    <div class="field"><label>วันเดือนปีเกิด</label>${thaiDateFieldHtml('f_birthDate', e.birthDate)}</div>
+    <div class="field"><label>วันเข้าทำงาน</label>${thaiDateFieldHtml('f_hireDate', e.hireDate)}</div>
+    <div class="field"><label>วันเกษียณอายุ</label>${thaiDateFieldHtml('f_retireDate', e.retireDate)}</div>
     <div class="field"></div>
     <div class="field"><label>สิทธิ์ลาป่วย (วัน/ปี)</label><input type="number" id="f_sickRight" value="${e.sickRight??60}"></div>
     <div class="field"><label>สิทธิ์ลาพักผ่อน (วัน/ปี)</label><input type="number" id="f_vacationRight" value="${e.vacationRight??10}"></div>
@@ -1048,8 +1251,8 @@ function viewLeaves(){
     </div>
     <div class="table-wrap"><table class="reg" id="leaveTable">
       <thead><tr>
-        <th class="rownum">#</th><th class="right">วันที่ยื่น</th><th class="right">ชื่อพนักงาน</th><th class="right">ประเภท</th>
-        <th class="right">ลาตั้งแต่</th><th class="right">ถึงวันที่</th><th class="right">จำนวนวัน</th><th class="right">เหตุผล</th><th class="right">จัดการ</th>
+        <th class="rownum">#</th><th class="num">วันที่ยื่น</th><th>ชื่อพนักงาน</th><th>ประเภท</th>
+        <th class="num">ลาตั้งแต่</th><th class="num">ถึงวันที่</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -1099,14 +1302,14 @@ function leaveFormHtml(rec){
   <h3>${rec?'แก้ไขรายการลา':'บันทึกวันลาใหม่'}</h3>
   <div class="field-grid">
     <div class="field full"><label>พนักงาน *</label><select id="f_emp"><option value="">-- เลือกพนักงาน --</option>${empOptionsHtml(r.employeeId)}</select></div>
-    <div class="field"><label>วันที่ยื่นใบลา</label><input type="date" id="f_submitDate" value="${r.submitDate||todayStr()}"></div>
+    <div class="field"><label>วันที่ยื่นใบลา</label>${thaiDateFieldHtml('f_submitDate', r.submitDate||todayStr())}</div>
     <div class="field"><label>ประเภทการลา *</label><select id="f_type">
       <option value="ป" ${r.leaveType==='ป'?'selected':''}>ลาป่วย</option>
       <option value="พ" ${r.leaveType==='พ'?'selected':''}>ลาพักผ่อน</option>
       <option value="ก" ${r.leaveType==='ก'?'selected':''}>ลากิจ</option>
     </select></div>
-    <div class="field"><label>ลาตั้งแต่วันที่ *</label><input type="date" id="f_start" value="${r.startDate||''}"></div>
-    <div class="field"><label>ถึงวันที่ *</label><input type="date" id="f_end" value="${r.endDate||''}"></div>
+    <div class="field"><label>ลาตั้งแต่วันที่ *</label>${thaiDateFieldHtml('f_start', r.startDate)}</div>
+    <div class="field"><label>ถึงวันที่ *</label>${thaiDateFieldHtml('f_end', r.endDate)}</div>
     <div class="field"><label>จำนวนวันลา</label><input type="number" step="0.5" id="f_days" value="${r.days??''}" placeholder="คำนวณอัตโนมัติถ้าเว้นว่าง"></div>
     <div class="field"><label>เหตุผลการลา</label><input id="f_reason" value="${esc(r.reason)}"></div>
     <div class="field full"><label>หมายเหตุ</label><textarea id="f_note">${esc(r.note)}</textarea></div>
@@ -1161,8 +1364,8 @@ function viewLoans(){
     </div>
     <div class="table-wrap"><table class="reg" id="loanTable">
       <thead><tr>
-        <th class="rownum">#</th><th class="right">เลขที่คำร้อง</th><th class="right">พนักงาน</th><th class="right">ประเภท</th>
-        <th class="right">วงเงินอนุมัติ</th><th class="right">ผ่อนแล้ว</th><th class="right">คงเหลือ</th><th class="right">สถานะ</th><th class="right">จัดการ</th>
+        <th class="rownum">#</th><th class="num">เลขที่คำร้อง</th><th>พนักงาน</th><th>ประเภท</th>
+        <th class="num">วงเงินอนุมัติ</th><th class="num">ผ่อนแล้ว</th><th class="num">คงเหลือ</th><th>สถานะ</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -1170,8 +1373,8 @@ function viewLoans(){
 }
 
 function loanRemaining(l){
-  const paid = Number(l.paidInstallments||0)*Number(l.installment||0);
-  return Math.max(Number(l.approvedAmount||0)-paid, 0);
+  const paid = safeNum(l.paidInstallments)*safeNum(l.installment);
+  return Math.max(safeNum(l.approvedAmount)-paid, 0);
 }
 
 function loanRows(){
@@ -1218,7 +1421,7 @@ function loanFormHtml(rec){
   <div class="field-grid">
     <div class="field full"><label>พนักงาน *</label><select id="f_emp"><option value="">-- เลือกพนักงาน --</option>${empOptionsHtml(r.employeeId)}</select></div>
     <div class="field"><label>เลขที่คำร้อง</label><input id="f_reqno" value="${esc(r.requestNo)}"></div>
-    <div class="field"><label>วันที่ยื่นคำขอ</label><input type="date" id="f_submitDate" value="${r.submitDate||todayStr()}"></div>
+    <div class="field"><label>วันที่ยื่นคำขอ</label>${thaiDateFieldHtml('f_submitDate', r.submitDate||todayStr())}</div>
     <div class="field"><label>ประเภทเงินกู้</label><select id="f_loanType">${LOAN_TYPES.map(t=>`<option ${r.loanType===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="field"><label>จำนวนเงินที่อนุมัติ *</label><input type="number" id="f_amount" value="${r.approvedAmount??''}"></div>
     <div class="field"><label>ระยะเวลาผ่อน (เดือน)</label><input type="number" id="f_months" value="${r.months??12}"></div>
@@ -1280,8 +1483,8 @@ function viewWelfare(){
     </div>
     <div class="table-wrap"><table class="reg" id="welfTable">
       <thead><tr>
-        <th class="rownum">#</th><th class="right">วันที่ยื่นเบิก</th><th class="right">พนักงาน</th><th class="right">หมวดหมู่</th>
-        <th class="right">สถานพยาบาล</th><th class="right">ยอดใบเสร็จ</th><th class="right">ปกส.จ่าย</th><th class="right">อนุมัติเบิก</th><th class="right">จัดการ</th>
+        <th class="rownum">#</th><th class="num">วันที่ยื่นเบิก</th><th>พนักงาน</th><th>หมวดหมู่</th>
+        <th>สถานพยาบาล</th><th class="num">ยอดใบเสร็จ</th><th class="num">ปกส.จ่าย</th><th class="num">อนุมัติเบิก</th><th>จัดการ</th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -1327,7 +1530,7 @@ function welfareFormHtml(rec){
   <h3>${rec?'แก้ไขรายการเบิกสวัสดิการ':'บันทึกการเบิกสวัสดิการใหม่'}</h3>
   <div class="field-grid">
     <div class="field full"><label>พนักงาน *</label><select id="f_emp"><option value="">-- เลือกพนักงาน --</option>${empOptionsHtml(r.employeeId)}</select></div>
-    <div class="field"><label>วันที่ยื่นเบิก</label><input type="date" id="f_submitDate" value="${r.submitDate||todayStr()}"></div>
+    <div class="field"><label>วันที่ยื่นเบิก</label>${thaiDateFieldHtml('f_submitDate', r.submitDate||todayStr())}</div>
     <div class="field"><label>หมวดหมู่ *</label><select id="f_cat">${WELFARE_CATS.map(c=>`<option value="${esc(c.label)}" ${r.category===c.label?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div>
     <div class="field"><label>สถานพยาบาล/คลินิก</label><input id="f_hospital" value="${esc(r.hospital)}"></div>
     <div class="field"><label>รายการ/หัตถการ</label><input id="f_procedure" value="${esc(r.procedure)}"></div>
@@ -1381,23 +1584,23 @@ function computeEmployeeSummary(empId){
   const used = {'ป':0,'พ':0,'ก':0};
   leaves.forEach(l=>{ if(used[l.leaveType]!==undefined) used[l.leaveType]+=Number(l.days||0); });
   const leaveSummary = [
-    {label:'ลาป่วย', right:Number(emp.sickRight||0), carry:Number(emp.carrySick||0), used:used['ป']},
-    {label:'ลาพักผ่อน', right:Number(emp.vacationRight||0), carry:Number(emp.carryVacation||0), used:used['พ']},
-    {label:'ลากิจ', right:Number(emp.personalRight||0), carry:Number(emp.carryPersonal||0), used:used['ก']}
+    {label:'ลาป่วย', right:safeNum(emp.sickRight), carry:safeNum(emp.carrySick), used:used['ป']},
+    {label:'ลาพักผ่อน', right:safeNum(emp.vacationRight), carry:safeNum(emp.carryVacation), used:used['พ']},
+    {label:'ลากิจ', right:safeNum(emp.personalRight), carry:safeNum(emp.carryPersonal), used:used['ก']}
   ].map(r=>({...r, total:r.right+r.carry, remaining:r.right+r.carry-r.used}));
 
   const loans = state.loans.filter(l=>l.employeeId===empId);
   const loanSummary = LOAN_TYPES.map(type=>{
     const active = loans.filter(l=>l.loanType===type && (l.status||'active')==='active');
     const current = active.reduce((s,l)=>s+loanRemaining(l),0);
-    const limit = type==='เงินกู้สามัญ' ? Number(emp.loanNormalLimit||0) : Number(emp.loanEmergencyLimit||0);
+    const limit = type==='เงินกู้สามัญ' ? safeNum(emp.loanNormalLimit) : safeNum(emp.loanEmergencyLimit);
     return {label:type, limit, current};
   });
 
   const welfare = state.welfare.filter(w=>w.employeeId===empId && w.submitDate && inRange(w.submitDate, fy.start, fy.end));
   const welfareSummary = WELFARE_CATS.map(c=>{
     const usedAmt = welfare.filter(w=>w.category===c.label).reduce((s,w)=>s+Number(w.approvedAmount||0),0);
-    const limit = Number(emp[c.limitField]||0);
+    const limit = safeNum(emp[c.limitField]);
     return {label:c.label, limit, used:usedAmt, remaining: Math.max(limit-usedAmt,0)};
   });
 
@@ -1459,15 +1662,15 @@ function individualReportHtml(s, forPrint, skipHeader){
   </div>
 
   <div class="doc-section-title">สรุปวันลา ปีงบประมาณ ${s.fy.start.getFullYear()+543}-${s.fy.end.getFullYear()+543}</div>
-  <table class="reg"><thead><tr><th class="right">หมวดวันลา</th><th class="right">สิทธิ์ตั้งต้น</th><th class="right">สะสมยกมา</th><th class="right">รวมสิทธิ์</th><th class="right">ใช้ไปแล้ว</th><th class="right">คงเหลือ</th></tr></thead>
+  <table class="reg"><thead><tr><th>หมวดวันลา</th><th class="num">สิทธิ์ตั้งต้น</th><th class="num">สะสมยกมา</th><th class="num">รวมสิทธิ์</th><th class="num">ใช้ไปแล้ว</th><th class="num">คงเหลือ</th></tr></thead>
   <tbody>${s.leaveSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${r.right}</td><td class="num">${r.carry}</td><td class="num">${r.total}</td><td class="num">${r.used}</td><td class="num">${r.remaining}</td></tr>`).join('')}</tbody></table>
 
   <div class="doc-section-title">สรุปเงินกู้</div>
-  <table class="reg"><thead><tr><th class="right">หมวดเงินกู้</th><th class="right">วงเงินสิทธิ์สูงสุด</th><th class="right">ยอดคงค้างปัจจุบัน</th></tr></thead>
+  <table class="reg"><thead><tr><th>หมวดเงินกู้</th><th class="num">วงเงินสิทธิ์สูงสุด</th><th class="num">ยอดคงค้างปัจจุบัน</th></tr></thead>
   <tbody>${s.loanSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${money(r.limit)}</td><td class="num">${money(r.current)}</td></tr>`).join('')}</tbody></table>
 
   <div class="doc-section-title">สรุปสวัสดิการและประกันสังคม (ปีงบประมาณนี้)</div>
-  <table class="reg"><thead><tr><th class="right">รายการ</th><th class="right">วงเงินสิทธิ์</th><th class="right">เบิกใช้ไปแล้ว</th><th class="right">คงเหลือ</th></tr></thead>
+  <table class="reg"><thead><tr><th>รายการ</th><th class="num">วงเงินสิทธิ์</th><th class="num">เบิกใช้ไปแล้ว</th><th class="num">คงเหลือ</th></tr></thead>
   <tbody>${s.welfareSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${money(r.limit)}</td><td class="num">${money(r.used)}</td><td class="num">${money(r.remaining)}</td></tr>`).join('')}</tbody></table>
   ${forPrint? `<div style="margin-top:26px; font-size:12px; color:var(--ink-soft);">พิมพ์เมื่อ ${buddhistDate(todayStr())}</div>` : ''}
   `;
@@ -1498,8 +1701,8 @@ function overallReportHtml(rows, fy, forPrint){
   return `
   ${forPrint? `<div class="doc-header">${state.settings.logoUrl? `<img src="${esc(state.settings.logoUrl)}" style="height:44px; object-fit:contain; margin-bottom:8px;">` : ''}<div class="org">รายงานสรุปภาพรวมบุคลากร</div><div class="title">ปีงบประมาณ ${fy.start.getFullYear()+543}-${fy.end.getFullYear()+543}</div></div>` : ''}
   <table class="reg"><thead><tr>
-    <th class="rownum">#</th><th class="right">ชื่อ-นามสกุล</th><th class="right">กลุ่มงาน</th>
-    <th class="right">วันลาใช้ไป</th><th class="right">วันลาคงเหลือ</th><th class="right">เงินกู้คงค้าง</th><th class="right">สวัสดิการที่เบิกแล้ว</th>
+    <th class="rownum">#</th><th>ชื่อ-นามสกุล</th><th>กลุ่มงาน</th>
+    <th class="num">วันลาใช้ไป</th><th class="num">วันลาคงเหลือ</th><th class="num">เงินกู้คงค้าง</th><th class="num">สวัสดิการที่เบิกแล้ว</th>
   </tr></thead>
   <tbody>${rows.length? rows.map((r,i)=>`
     <tr><td class="rownum">${i+1}</td><td>${esc(r.e.name)}</td><td>${esc(r.e.department)}</td>
@@ -1665,8 +1868,10 @@ function openModal(html, maxWidth){
   document.getElementById('modalOverlay').classList.add('active');
   const cancelBtn = document.getElementById('btnCancelModal');
   if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  initThaiDatePickers(document.getElementById('modalBox'));
 }
 function closeModal(){
+  closeAnyDatePicker();
   document.getElementById('modalOverlay').classList.remove('active');
   document.getElementById('modalBox').innerHTML = '';
 }
