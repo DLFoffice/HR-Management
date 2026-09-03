@@ -232,6 +232,7 @@ table.reg td{
 }
 table.reg tbody tr{transition:background .18s var(--ease);}
 table.reg tbody tr:hover{background:var(--lav-bg);}
+table.reg tbody tr.row-clickable{cursor:pointer;}
 table.reg .num{font-variant-numeric:tabular-nums; text-align:left;}
 table.reg .rownum{color:var(--ink-faint); font-size:12px; width:30px; text-align:left;}
 .table-wrap{overflow-x:auto;}
@@ -385,6 +386,10 @@ code.inline{background:var(--lav-bg); color:var(--lav-deep); padding:2px 7px; bo
 <div id="toast"></div>
 
 <div id="printArea"></div>
+
+<div id="imgHoverPreview" style="display:none; position:fixed; z-index:300; pointer-events:none; background:#fff; padding:5px; border-radius:14px; box-shadow:0 18px 44px rgba(60,40,140,0.28); border:1px solid var(--line);">
+  <img style="width:210px; height:210px; object-fit:cover; border-radius:10px; display:block;">
+</div>
 
 <script>
 /* ==========================================================
@@ -564,10 +569,37 @@ function avatarHtml(emp, size){
   size = size || 32;
   const initials = emp && emp.name ? emp.name.replace(/^(นาย|นางสาว|นาง|ว่าที่ร้อยตรี|ว่าที่ร้อยตรีหญิง)/,'').trim().slice(0,1) : '?';
   if(emp && emp.photoUrl){
-    return `<img src="${esc(emp.photoUrl)}" style="width:${size}px; height:${size}px; border-radius:50%; object-fit:cover; border:1px solid var(--line-strong); vertical-align:middle;">`;
+    return `<img src="${esc(emp.photoUrl)}" class="avatar-thumb" style="width:${size}px; height:${size}px; border-radius:50%; object-fit:cover; border:1px solid var(--line-strong); vertical-align:middle; cursor:zoom-in;">`;
   }
   return `<span style="display:inline-flex; align-items:center; justify-content:center; width:${size}px; height:${size}px; border-radius:50%; background:var(--lav-bg); color:var(--lav-deep); font-weight:600; font-size:${size*0.4}px; vertical-align:middle;">${esc(initials)}</span>`;
 }
+
+/* ---------------- Image hover zoom (global) ---------------- */
+document.addEventListener('mouseover', (e)=>{
+  const img = e.target.closest && e.target.closest('.avatar-thumb');
+  if(!img) return;
+  const preview = document.getElementById('imgHoverPreview');
+  if(!preview) return;
+  preview.innerHTML = `<img src="${img.src}" style="width:210px; height:210px; object-fit:cover; border-radius:10px; display:block;">`;
+  preview.style.display = 'block';
+});
+document.addEventListener('mousemove', (e)=>{
+  const preview = document.getElementById('imgHoverPreview');
+  if(!preview || preview.style.display!=='block') return;
+  let x = e.clientX + 22, y = e.clientY + 22;
+  const maxX = window.innerWidth - 230;
+  const maxY = window.innerHeight - 230;
+  if(x>maxX) x = e.clientX - 230;
+  if(y>maxY) y = e.clientY - 230;
+  preview.style.left = Math.max(x,8)+'px';
+  preview.style.top = Math.max(y,8)+'px';
+});
+document.addEventListener('mouseout', (e)=>{
+  const img = e.target.closest && e.target.closest('.avatar-thumb');
+  if(!img) return;
+  const preview = document.getElementById('imgHoverPreview');
+  if(preview) preview.style.display = 'none';
+});
 
 /* ---------------- Utilities ---------------- */
 function toast(msg){
@@ -847,7 +879,7 @@ function renderEmployeeTable(){
   if(!tbody) return;
   const rows = employeeRows();
   tbody.innerHTML = rows.length ? rows.map((e,i)=>`
-    <tr>
+    <tr class="row-clickable" data-emp-id="${e.id}">
       <td class="rownum">${i+1}</td>
       <td class="num">${esc(e.code)}</td>
       <td>${avatarHtml(e,28)} <span style="margin-left:8px;">${esc(e.name)}</span></td>
@@ -860,8 +892,15 @@ function renderEmployeeTable(){
         <button class="btn btn-sm btn-danger" data-del-emp="${e.id}">ลบ</button>
       </td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="8">ยังไม่มีข้อมูลพนักงาน ลองเพิ่มพนักงานคนแรก</td></tr>`;
-  tbody.querySelectorAll('[data-edit-emp]').forEach(b=>b.addEventListener('click', ()=>openEmployeeModal(b.dataset.editEmp)));
-  tbody.querySelectorAll('[data-del-emp]').forEach(b=>b.addEventListener('click', ()=>{
+  tbody.querySelectorAll('tr[data-emp-id]').forEach(tr=>{
+    tr.addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      openEmployeeDetailModal(tr.dataset.empId);
+    });
+  });
+  tbody.querySelectorAll('[data-edit-emp]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openEmployeeModal(b.dataset.editEmp); }));
+  tbody.querySelectorAll('[data-del-emp]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
     if(confirm('ยืนยันลบข้อมูลพนักงานนี้?')) crudDelete('employees', b.dataset.delEmp);
   }));
 }
@@ -911,6 +950,31 @@ function employeeFormHtml(emp){
     <button class="btn" id="btnCancelModal">ยกเลิก</button>
     <button class="btn btn-primary" id="btnSaveEmp">${emp?'บันทึกการแก้ไข':'บันทึกพนักงานใหม่'}</button>
   </div>`;
+}
+
+function openEmployeeDetailModal(id){
+  const emp = employeeById(id);
+  if(!emp) return;
+  const summary = computeEmployeeSummary(id);
+  openModal(`
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:4px;">
+      <div style="display:flex; align-items:center; gap:16px;">
+        ${avatarHtml(emp,72)}
+        <div>
+          <h3 style="margin:0 0 3px;">${esc(emp.name)}</h3>
+          <div class="muted" style="font-size:13px;">${esc(emp.position)} ${emp.department? '· '+esc(emp.department):''}</div>
+        </div>
+      </div>
+    </div>
+    <div style="max-height:56vh; overflow-y:auto; overflow-x:auto; margin-top:16px; padding-right:4px;">
+      ${individualReportHtml(summary, false, true)}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelModal">ปิด</button>
+      <button class="btn btn-primary" id="btnEditFromDetail">แก้ไขข้อมูลพนักงาน</button>
+    </div>
+  `, 760);
+  document.getElementById('btnEditFromDetail').addEventListener('click', ()=>{ closeModal(); openEmployeeModal(id); });
 }
 
 function openEmployeeModal(id){
@@ -1368,14 +1432,15 @@ function renderReportIndividual(){
   });
 }
 
-function individualReportHtml(s, forPrint){
+function individualReportHtml(s, forPrint, skipHeader){
   const e = s.emp;
   return `
+  ${skipHeader ? '' : `
   <div class="doc-header">
     ${state.settings.logoUrl? `<img src="${esc(state.settings.logoUrl)}" style="height:44px; object-fit:contain; margin-bottom:8px;">` : ''}
     <div class="org">รายงานสรุปข้อมูลบุคลากรรายบุคคล</div>
     <div class="title" style="display:flex; align-items:center; justify-content:center; gap:10px;">${avatarHtml(e,36)}${esc(e.name)}</div>
-  </div>
+  </div>`}
   <div class="doc-meta">
     <div><span class="k">รหัสพนักงาน: </span>${esc(e.code)}</div>
     <div><span class="k">วันเข้าทำงาน: </span>${buddhistDate(e.hireDate)}</div>
@@ -1588,8 +1653,9 @@ async function importSeedData(){
 }
 
 /* ================= MODAL HELPERS ================= */
-function openModal(html){
+function openModal(html, maxWidth){
   document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalBox').style.maxWidth = maxWidth ? maxWidth+'px' : '';
   document.getElementById('modalOverlay').classList.add('active');
   const cancelBtn = document.getElementById('btnCancelModal');
   if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
