@@ -248,6 +248,47 @@ nav.navlist{padding:16px 12px; flex:1;}
   background:var(--lav-bg); padding:2px 11px; border-radius:20px;
 }
 
+/* ---------- Organization chart ---------- */
+.orgchart-wrap{min-width:920px; padding:10px 10px 20px;}
+.org-head-wrap{display:flex; flex-direction:column; align-items:center;}
+.org-head-box{
+  display:inline-flex; align-items:center; gap:12px;
+  background:linear-gradient(135deg, #123A6B 0%, #2E7DC9 100%);
+  color:#fff; padding:12px 22px; border-radius:16px;
+  box-shadow:0 12px 28px rgba(18,58,107,0.28);
+}
+.org-head-name{font-size:15px; font-weight:700;}
+.org-head-title{font-size:12px; color:#DCEBFF; margin-top:2px;}
+.org-head-stem{width:2px; height:26px; background:var(--line-strong);}
+.org-branch{display:flex; justify-content:center; gap:16px; position:relative; padding-top:26px;}
+.org-branch::before{content:''; position:absolute; top:0; left:4%; right:4%; height:2px; background:var(--line-strong);}
+.org-col{position:relative; flex:1; min-width:118px; max-width:190px;}
+.org-col::before{content:''; position:absolute; top:-26px; left:50%; width:2px; height:26px; background:var(--line-strong); transform:translateX(-50%);}
+.org-col-head{
+  background:linear-gradient(135deg, var(--lav) 0%, var(--lav-2) 100%); color:#fff;
+  font-size:12px; font-weight:700; text-align:center; padding:9px 8px; border-radius:12px;
+  box-shadow:0 8px 18px rgba(139,127,240,0.28); margin-bottom:10px; min-height:38px;
+  display:flex; align-items:center; justify-content:center;
+}
+.org-col:nth-child(2) .org-col-head{background:linear-gradient(135deg, var(--mint) 0%, #38B89E 100%); box-shadow:0 8px 18px rgba(79,209,181,0.28);}
+.org-col:nth-child(3) .org-col-head{background:linear-gradient(135deg, var(--peach) 0%, #E8814F 100%); box-shadow:0 8px 18px rgba(255,159,122,0.28);}
+.org-col:nth-child(4) .org-col-head{background:linear-gradient(135deg, var(--pink) 0%, #E8618F 100%); box-shadow:0 8px 18px rgba(255,143,184,0.28);}
+.org-col:nth-child(5) .org-col-head{background:linear-gradient(135deg, var(--sun) 0%, #D99A1E 100%); box-shadow:0 8px 18px rgba(255,194,75,0.28);}
+.org-col:nth-child(6) .org-col-head{background:linear-gradient(135deg, #6BAF8E 0%, #3F6B4E 100%); box-shadow:0 8px 18px rgba(63,107,78,0.25);}
+.org-col:nth-child(7) .org-col-head{background:linear-gradient(135deg, #7A8CC9 0%, #4C5FA6 100%); box-shadow:0 8px 18px rgba(76,95,166,0.25);}
+.org-col-list{display:flex; flex-direction:column; gap:6px;}
+.org-person{
+  display:flex; align-items:center; gap:8px; background:var(--paper);
+  border:1px solid var(--line); border-radius:10px; padding:6px 8px;
+  transition:box-shadow .18s var(--ease), transform .18s var(--ease);
+}
+.org-person[data-org-emp]:hover{box-shadow:var(--shadow-sm); transform:translateY(-1px);}
+.org-person-info{min-width:0;}
+.org-person-name{font-size:12px; color:var(--ink); line-height:1.3; overflow-wrap:break-word;}
+.org-person-pos{font-size:10.5px; color:var(--ink-faint); line-height:1.3;}
+.org-leader{background:var(--lav-bg); border-color:var(--lav-2);}
+.org-leader .org-person-name{font-weight:700; color:var(--lav-deep);}
+
 /* ---------- Tables ---------- */
 table.reg{width:100%; border-collapse:collapse; font-size:13.5px;}
 table.reg th{
@@ -1009,6 +1050,7 @@ function buildCalendarHtml(year, month, selectedIso){
 const NAV = [
   {id:'dashboard', label:'ภาพรวม', icon:'◆'},
   {id:'employees', label:'ข้อมูลพนักงาน', icon:'◆'},
+  {id:'orgchart', label:'โครงสร้างองค์กร', icon:'◆'},
   {id:'leaves', label:'บันทึกวันลา', icon:'◆'},
   {id:'loans', label:'บันทึกเงินกู้', icon:'◆'},
   {id:'welfare', label:'สวัสดิการ/ประกันสังคม', icon:'◆'},
@@ -1053,6 +1095,7 @@ function renderView(){
   const v = state.currentView;
   if(v==='dashboard') root.innerHTML = viewDashboard();
   else if(v==='employees') root.innerHTML = viewEmployees();
+  else if(v==='orgchart') root.innerHTML = viewOrgChart();
   else if(v==='leaves') root.innerHTML = viewLeaves();
   else if(v==='loans') root.innerHTML = viewLoans();
   else if(v==='welfare') root.innerHTML = viewWelfare();
@@ -1411,6 +1454,86 @@ function openEmployeeModal(id){
     closeModal();
     if(emp) crudUpdate('employees', data); else crudAdd('employees', data);
   });
+}
+
+/* ================= ORGANIZATION CHART ================= */
+const ORG_CHART_DATA = {
+  head: { name:'นายเชิดศักดิ์ ศรีศักดิ์วิชัย', fallbackTitle:'หัวหน้าสำนักงานฯ' },
+  groups: [
+    { title:'กลุ่มบริหารงานทั่วไป', members:['นางสาวจรรยา พลสมัคร','นางสาวฐิติรัตน์ มากใย','นางสาวสงวน ชัยสูงเนิน','นางสาวศรุดา สถานนท์ชัย','นางสาวกมลวรรณ คล้ายมาก','นางสาวรินรดา ฤษฎีร'] },
+    { title:'กลุ่มการเงินและบัญชี', members:['นางอุราภรณ์ มูลตรี','นางสาวปัญจรัตน์ พลอยมีค่า','นางวณิชญาย์ ทางธรรม','นางสาววิภาวรรณ อยู่อุบล'] },
+    { title:'กลุ่มงานสนับสนุน', members:['นางสาวณัฎฐา ปัดแก้ว','นายอนุชัย แก้วสระเสน','นางสาวพจนีย์ ไทรชมภู','นายปานัฐ เกิดผล','นายขวัญชัย มาเกิด','นายอดิศร แสงไชย','นายพิษณุพจน์ สิทธิธนาสกุล'] },
+    { title:'กลุ่มวิชาการ', members:['ดร.วิภา ตัณฑุลพงษ์','นางสาวณัฐพร เผือดจันทึก','นางสาวนิสาชล แสงฟ้า','นายพันธ์พัทธ์ ชัยด้วง','นางสาวทิพจุฑา ชุนเกษา','นางศิริรัตน์ มูลไชยศรี'] },
+    { title:'กลุ่มนโยบายและแผน', members:['นางสาวจินตนา วรรณยง','นายอดิพงษ์ วรรณยศ','นางสาววันทิวา สอนน้อย','นางสาวสุธาสินี เอื้อวีระวัฒน์'] },
+    { title:'กลุ่มสารสนเทศ', members:['ว่าที่ร้อยตรีพิพัฒพงษ์ เตชะรัตน์วรากุล','นายถิรเดช สร้อยสังข์','นางพจนีย์ ศรีสวัสดิ์'] },
+    { title:'กลุ่มงานความร่วมมือและสื่อสารองค์กร', members:['นางสาวสุวิมล วัฒนะพาณิชมงคล'] }
+  ]
+};
+
+function normalizeNameForMatch(name){
+  return String(name||'')
+    .replace(/^(ว่าที่ร้อยตรีหญิง|ว่าที่ร้อยตรี|ดร\.|นางสาว|นาง|นาย)/,'')
+    .replace(/\s+/g,'')
+    .trim();
+}
+function findEmployeeByName(name){
+  const key = normalizeNameForMatch(name);
+  return state.employees.find(e=> normalizeNameForMatch(e.name) === key) || null;
+}
+
+function orgPersonHtml(name, isLeader){
+  const emp = findEmployeeByName(name);
+  const position = emp ? emp.position : '';
+  return `
+  <div class="org-person ${isLeader?'org-leader':''}" ${emp?`data-org-emp="${emp.id}"`:''}>
+    ${avatarHtml(emp, isLeader?34:26)}
+    <div class="org-person-info">
+      <div class="org-person-name">${esc(name)}</div>
+      ${position? `<div class="org-person-pos">${esc(position)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function viewOrgChart(){
+  const headEmp = findEmployeeByName(ORG_CHART_DATA.head.name);
+  const headTitle = headEmp ? headEmp.position : ORG_CHART_DATA.head.fallbackTitle;
+  return `
+  <div class="page-header">
+    <div><h1>โครงสร้างองค์กร</h1><div class="sub">ผังโครงสร้างบุคลากรตามกลุ่มงาน ดึงตำแหน่งและรูปจากข้อมูลพนักงานอัตโนมัติ</div></div>
+    <div class="actions"><button class="btn btn-gold" id="btnPrintOrgChart">พิมพ์ / บันทึก PDF</button></div>
+  </div>
+  <div class="panel" style="overflow-x:auto;">
+    ${orgChartBodyHtml()}
+  </div>
+  `;
+}
+
+function orgChartBodyHtml(){
+  const headEmp = findEmployeeByName(ORG_CHART_DATA.head.name);
+  const headTitle = headEmp ? headEmp.position : ORG_CHART_DATA.head.fallbackTitle;
+  return `
+  <div class="orgchart-wrap">
+    <div class="org-head-wrap">
+      <div class="org-head-box" ${headEmp?`data-org-emp="${headEmp.id}"`:''}>
+        ${avatarHtml(headEmp, 40)}
+        <div>
+          <div class="org-head-name">${esc(ORG_CHART_DATA.head.name)}</div>
+          <div class="org-head-title">${esc(headTitle)}</div>
+        </div>
+      </div>
+      <div class="org-head-stem"></div>
+    </div>
+    <div class="org-branch">
+      ${ORG_CHART_DATA.groups.map(g => `
+        <div class="org-col">
+          <div class="org-col-head">${esc(g.title)}</div>
+          <div class="org-col-list">
+            ${g.members.map((m,i)=> orgPersonHtml(m, i===0)).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
 }
 
 /* ================= LEAVES ================= */
@@ -2234,6 +2357,13 @@ function bindViewEvents(v){
     document.getElementById('empSearch')?.addEventListener('input', renderEmployeeTable);
     document.getElementById('empDeptFilter')?.addEventListener('change', renderEmployeeTable);
     renderEmployeeTable();
+  }
+  else if(v==='orgchart'){
+    document.getElementById('btnPrintOrgChart')?.addEventListener('click', ()=> printDocument(orgChartBodyHtml()));
+    document.querySelectorAll('[data-org-emp]').forEach(el=>{
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', ()=> openEmployeeDetailModal(el.dataset.orgEmp));
+    });
   }
   else if(v==='leaves'){
     document.getElementById('btnAddLeave')?.addEventListener('click', ()=>openLeaveModal(null));
