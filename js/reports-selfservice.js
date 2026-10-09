@@ -376,11 +376,12 @@ table.reg th.rownum, table.reg td.rownum{color:var(--ink-faint); width:30px; tex
 .lf-opts{ display:inline; }
 .opt{ display:inline-block; white-space:nowrap; margin-right:1.3em; }
 .opt, .f, .sig, .cb{ text-indent:0; }
-.lf-sign{ display:flex; justify-content:flex-end; margin-top:10px; }
-.lf-sign > div{ text-align:center; line-height:2.1; }
-.sig{ display:inline-grid; grid-template-columns:auto auto; column-gap:.4em; align-items:end; text-align:left; }
+.lf-sign{ display:flex; justify-content:flex-end; margin-top:12px; }
+.lf-sign > div{ width:47%; text-align:center; line-height:2.1; }
+.sig{ display:grid; grid-template-columns:auto 1fr auto; column-gap:.4em; align-items:end; text-align:left; width:100%; }
 .sig .k{ text-align:right; white-space:nowrap; }
-.sig .v{ display:inline-block; min-width:12em; border-bottom:1px dotted #6B7470; text-align:center; line-height:1.4; color:#0F2A6B; font-weight:500; }
+.sig .e{ white-space:nowrap; min-width:.4em; }
+.sig .v{ display:block; border-bottom:1px dotted #6B7470; text-align:center; line-height:1.4; color:#0F2A6B; font-weight:500; min-height:1.4em; }
 .sig .v.plain{ color:inherit; font-weight:400; }
 .sig .full{ grid-column:1 / -1; text-align:center; }
 .lf-bottom{ display:grid; grid-template-columns:1.05fr 1fr; gap:22px; margin-top:16px; padding-top:12px;
@@ -393,9 +394,27 @@ table.reg th.rownum, table.reg td.rownum{color:var(--ink-faint); width:30px; tex
 .lf-stats td:first-child{ text-align:left; }
 .lf-stats .muted{ color:var(--ink-faint); }
 .lf-stamp{ text-align:center; line-height:2; margin-top:4px; }
-.lf-stamp .sig .v{ min-width:10.5em; }
+.lf-stamp .sig{ grid-template-columns:4.2em 1fr auto; }
 .lf-lines .ln{ border-bottom:1px dotted #6B7470; height:1.85em; }
 .lf-order{ margin-top:10px; padding-top:8px; border-top:1px dashed var(--rule); }
+
+/* letterhead: logo top-left, title centred on the page */
+.lf-head2{ display:grid; grid-template-columns:78px 1fr 78px; align-items:center; margin-bottom:2px; }
+.lf-head2 .lf-logo img{ width:72px; height:auto; max-height:84px; object-fit:contain; display:block; }
+.lf-head2 .lf-headtext{ text-align:center; }
+/* edge-to-edge rows: last dotted field stretches to the right margin */
+.lr{ display:flex; align-items:baseline; gap:0 .4em; margin:0; }
+.lr.ind{ padding-left:2.5em; }
+.lr > .t{ white-space:nowrap; flex:none; }
+.lr > .f{ flex:none; }
+.lr > .f.g{ flex:1 1 0; min-width:2.5em; }
+.lr > .f.g2{ flex:2 1 0; min-width:2.5em; }
+.lr .lbl{ flex:none; display:inline-block; width:var(--lw,3.4em); font-weight:700; }
+.opts{ display:flex; flex:1; }
+.opts .opt{ width:7.2em; margin:0; }
+.lr .ohead{ flex:none; width:var(--lw); }
+.lf-place2{ display:flex; justify-content:flex-end; margin:6px 0 4px; }
+.lf-place2 .box{ width:47%; }
 .lf-note{ font-size:12px; color:var(--ink-faint); margin-top:2px; line-height:1.5; }
 
 /* ---------- org chart (print) ---------- */
@@ -524,13 +543,9 @@ function thaiLongDate(dstr){
 function checkbox(on){ return `<span class="cb${on?' on':''}"></span>`; }
 function opt(on, label){ return `<span class="opt">${checkbox(on)}${label}</span>`; }
 function sigBlock(lines){
+  const cell = v => (v===undefined||v===null||v==='') ? '&nbsp;' : esc(v);
   return `<div class="sig">${lines.map(l=> l.full ? `<div class="full">${l.full}</div>` :
-    `<span class="k">${l.k}</span><span class="v${l.plain?' plain':''}">${l.v===undefined||l.v===null||l.v===''?'&nbsp;':esc(l.v)}</span>`).join('')}</div>`;
-}
-/* a value typed onto a dotted line, like a filled-in paper form */
-function fillIn(v, w, left){
-  const txt = (v===undefined || v===null || v==='') ? '&nbsp;' : esc(v);
-  return `<span class="f${left?' l':''}" style="--w:${w||4}em">${txt}</span>`;
+    `<span class="k">${l.k||''}</span><span class="v${l.plain?' plain':''}">${cell(l.v)}</span><span class="e">${l.end||''}</span>`).join('')}</div>`;
 }
 function blankOr(v){ return fillIn(v); }
 
@@ -583,12 +598,22 @@ function leaveFormTitle(rec){
 
 function leaveFormHeadHtml(title){
   const logo = state.settings.logoUrl ? `<img src="${esc(state.settings.logoUrl)}" alt="">` : '';
-  return `<div class="lf-head">${logo}<div class="lf-title">${title}</div><div class="lf-org">${esc(ORG_FULL_NAME)}</div></div>`;
+  return `<div class="lf-head2">
+    <div class="lf-logo">${logo}</div>
+    <div class="lf-headtext"><div class="lf-title">${title}</div><div class="lf-org">${esc(ORG_FULL_NAME)}</div></div>
+    <div></div>
+  </div>`;
 }
+/* row builders — t(text), g(value) = stretching dotted field, fx(value,w) = fixed field */
+const T  = (x)=> `<span class="t">${x}</span>`;
+const G  = (v, two)=> `<span class="f ${two?'g2':'g'}">${(v===undefined||v===null||v==='')?'&nbsp;':esc(v)}</span>`;
+const FX = (v, w)=> `<span class="f" style="--w:${w}em">${(v===undefined||v===null||v==='')?'&nbsp;':esc(v)}</span>`;
+const ROW = (parts, ind)=> `<div class="lr${ind?' ind':''}">${parts.join('')}</div>`;
+
 function leaveFormPlaceDateHtml(emp, submit){
-  return `<div class="lf-place"><div>
-    <div>เขียนที่ ${fillIn(emp.department || 'สำนักงานฯ', 9)}</div>
-    <div>วันที่ ${fillIn(submit.day, 2.5)} เดือน ${fillIn(submit.month, 6)} พ.ศ. ${fillIn(submit.year, 3.5)}</div>
+  return `<div class="lf-place2"><div class="box">
+    ${ROW([T('เขียนที่'), G(emp.department || 'สำนักงานฯ')])}
+    ${ROW([T('วันที่'), G(submit.day), T('เดือน'), G(submit.month, true), T('พ.ศ.'), G(submit.year)])}
   </div></div>`;
 }
 function leaveContactLine(rec){
@@ -599,13 +624,17 @@ function leaveContactLine(rec){
     rec.contactAmphoe ? 'อ.'+rec.contactAmphoe : '',
     rec.contactProvince ? 'จ.'+rec.contactProvince : ''
   ].filter(Boolean).join(' ');
-  return `<div class="lf-row lf-indent">ในระหว่างลาจะติดต่อข้าพเจ้าได้ที่ ${fillIn(parts, 15, true)}</div>
-    <div class="lf-row">โทรศัพท์ ${fillIn(rec.contactPhone, 8)}</div>`;
+  return ROW([T('ในระหว่างลาจะติดต่อข้าพเจ้าได้ที่'), G(parts)], true)
+       + ROW([T('โทรศัพท์'), G(rec.contactPhone)]);
+}
+/* checkbox row: label column has a fixed width so both option rows line up */
+function optRow(label, opts, ind, tail){
+  return `<div class="lr${ind?' ind':''}"><span class="ohead t" style="--lw:${ind?'6.6em':'9.1em'}">${label}</span><span class="opts">${opts.map(o=>opt(o[0],o[1])).join('')}</span>${tail?T(tail):''}</div>`;
 }
 function leaveSignerHtml(emp){
   return `<div class="lf-sign"><div>
     <div>ขอแสดงความนับถือ</div>
-    ${sigBlock([{k:'(ลงชื่อ)', v:''}, {k:'(', v:emp.name}, {k:'ตำแหน่ง', v:emp.position}])}
+    ${sigBlock([{k:'(ลงชื่อ)', v:''}, {k:'(', v:emp.name, end:')'}, {k:'ตำแหน่ง', v:emp.position}])}
   </div></div>`;
 }
 function approverBlockHtml(){
@@ -634,16 +663,16 @@ function sickPersonalFormPrintHtml(rec, emp, submit){
     ${leaveFormHeadHtml('แบบใบลาป่วย ลาคลอดบุตร ลากิจส่วนตัว')}
     ${leaveFormPlaceDateHtml(emp, submit)}
 
-    <div class="lf-row"><span class="lf-label">เรื่อง</span>ขออนุญาต${kind}</div>
-    <div class="lf-row"><span class="lf-label">เรียน</span>หัวหน้าสำนักงาน</div>
+    <div class="lr"><span class="lbl">เรื่อง</span>${T('ขออนุญาต'+kind)}</div>
+    <div class="lr"><span class="lbl">เรียน</span>${T('หัวหน้าสำนักงาน')}</div>
 
-    <div class="lf-row lf-indent">ข้าพเจ้า ${fillIn(emp.name, 13)} ตำแหน่ง ${fillIn(emp.position, 11)}</div>
-    <div class="lf-row">สังกัด ${fillIn(emp.department, 8)} ${esc(ORG_FULL_NAME)}</div>
-    <div class="lf-row">ขอลา&ensp;${opt(isSick,'ป่วย')}${opt(isPersonal,'กิจส่วนตัว')}${opt(false,'คลอดบุตร')}</div>
-    <div class="lf-row">เนื่องจาก ${fillIn(rec.reason, 26, true)}</div>
-    <div class="lf-row">ตั้งแต่วันที่ ${fillIn(thaiLongDate(rec.startDate), 9)} ถึงวันที่ ${fillIn(thaiLongDate(rec.endDate), 9)} มีกำหนด ${fillIn(rec.days, 2.5)} วัน</div>
-    <div class="lf-row lf-indent">ข้าพเจ้าได้ลา&ensp;${opt(isSick,'ป่วย')}${opt(isPersonal,'กิจส่วนตัว')}${opt(false,'คลอดบุตร')}ครั้งสุดท้าย</div>
-    <div class="lf-row">ตั้งแต่วันที่ ${fillIn(prev?thaiLongDate(prev.startDate):'', 8)} ถึงวันที่ ${fillIn(prev?thaiLongDate(prev.endDate):'', 8)} มีกำหนด ${fillIn(prev?prev.days:'', 2.5)} วัน</div>
+    ${ROW([T('ข้าพเจ้า'), G(emp.name), T('ตำแหน่ง'), G(emp.position)], true)}
+    ${ROW([T('สังกัด'), G(emp.department), T(esc(ORG_FULL_NAME))])}
+    ${optRow('ขอลา', [[isSick,'ป่วย'],[isPersonal,'กิจส่วนตัว'],[false,'คลอดบุตร']])}
+    ${ROW([T('เนื่องจาก'), G(rec.reason)])}
+    ${ROW([T('ตั้งแต่วันที่'), G(thaiLongDate(rec.startDate)), T('ถึงวันที่'), G(thaiLongDate(rec.endDate)), T('มีกำหนด'), FX(rec.days, 3), T('วัน')])}
+    ${optRow('ข้าพเจ้าได้ลา', [[isSick,'ป่วย'],[isPersonal,'กิจส่วนตัว'],[false,'คลอดบุตร']], true, 'ครั้งสุดท้าย')}
+    ${ROW([T('ตั้งแต่วันที่'), G(prev?thaiLongDate(prev.startDate):''), T('ถึงวันที่'), G(prev?thaiLongDate(prev.endDate):''), T('มีกำหนด'), FX(prev?prev.days:'', 3), T('วัน')])}
     ${leaveContactLine(rec)}
 
     ${leaveSignerHtml(emp)}
@@ -667,14 +696,14 @@ function vacationFormPrintHtml(rec, emp, submit){
     ${leaveFormHeadHtml('แบบใบลาพักผ่อน')}
     ${leaveFormPlaceDateHtml(emp, submit)}
 
-    <div class="lf-row"><span class="lf-label">เรื่อง</span>ขออนุญาตลาพักผ่อน</div>
-    <div class="lf-row"><span class="lf-label">เรียน</span>หัวหน้าสำนักงานมูลนิธิฯ</div>
+    <div class="lr"><span class="lbl">เรื่อง</span>${T('ขออนุญาตลาพักผ่อน')}</div>
+    <div class="lr"><span class="lbl">เรียน</span>${T('หัวหน้าสำนักงานมูลนิธิฯ')}</div>
 
-    <div class="lf-row lf-indent">ข้าพเจ้า ${fillIn(emp.name, 13)} ตำแหน่ง ${fillIn(emp.position, 11)}</div>
-    <div class="lf-row">สังกัด ${fillIn(emp.department, 8)} ${esc(ORG_FULL_NAME)}</div>
-    <div class="lf-row">มีวันลาพักผ่อนสะสม ${fillIn(vac.carry, 2.5)} วันทำการ มีสิทธิลาพักผ่อนประจำปีนี้อีก ${fillIn(vac.right, 2.5)} วันทำการ</div>
-    <div class="lf-row">รวมเป็น ${fillIn(vac.total, 2.5)} วันทำการ</div>
-    <div class="lf-row">ขอลาพักผ่อนตั้งแต่วันที่ ${fillIn(thaiLongDate(rec.startDate), 9)} ถึงวันที่ ${fillIn(thaiLongDate(rec.endDate), 9)} มีกำหนด ${fillIn(rec.days, 2.5)} วัน</div>
+    ${ROW([T('ข้าพเจ้า'), G(emp.name), T('ตำแหน่ง'), G(emp.position)], true)}
+    ${ROW([T('สังกัด'), G(emp.department), T(esc(ORG_FULL_NAME))])}
+    ${ROW([T('มีวันลาพักผ่อนสะสม'), G(vac.carry), T('วันทำการ'), T('มีสิทธิลาพักผ่อนประจำปีนี้อีก'), G(vac.right), T('วันทำการ')])}
+    ${ROW([T('รวมเป็น'), G(vac.total), T('วันทำการ'), T('ขอลาพักผ่อนตั้งแต่วันที่'), G(thaiLongDate(rec.startDate), true)])}
+    ${ROW([T('ถึงวันที่'), G(thaiLongDate(rec.endDate), true), T('มีกำหนด'), G(rec.days), T('วัน')])}
     ${leaveContactLine(rec)}
 
     ${leaveSignerHtml(emp)}
