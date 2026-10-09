@@ -1,19 +1,44 @@
 /* ===== app-events.js ===== */
 /* ================= MODAL HELPERS ================= */
+let __modalCloseTimer = null;
 function openModal(html, maxWidth){
-  document.getElementById('modalBox').innerHTML = html;
-  document.getElementById('modalBox').style.maxWidth = maxWidth ? maxWidth+'px' : '';
-  document.getElementById('modalOverlay').classList.add('active');
+  const overlay = document.getElementById('modalOverlay');
+  const box = document.getElementById('modalBox');
+  clearTimeout(__modalCloseTimer);
+  overlay.classList.remove('closing');
+  box.innerHTML = html;
+  box.style.maxWidth = maxWidth ? maxWidth+'px' : '';
+  // grow the dialog from roughly where the user clicked
+  const c = window.__lastClick;
+  box.style.setProperty('--ox', c ? Math.round(c.x/innerWidth*100)+'%' : '50%');
+  box.style.setProperty('--oy', '0%');
+  box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
   const cancelBtn = document.getElementById('btnCancelModal');
   if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-  initThaiDatePickers(document.getElementById('modalBox'));
-  initEmpPickers(document.getElementById('modalBox'));
+  initThaiDatePickers(box);
+  initEmpPickers(box);
 }
 function closeModal(){
   closeAnyDatePicker();
-  document.getElementById('modalOverlay').classList.remove('active');
-  document.getElementById('modalBox').innerHTML = '';
+  const overlay = document.getElementById('modalOverlay');
+  if(!overlay.classList.contains('active')) return;
+  document.body.style.overflow = '';
+  if(prefersReducedMotion()){
+    overlay.classList.remove('active');
+    document.getElementById('modalBox').innerHTML = '';
+    return;
+  }
+  overlay.classList.add('closing');
+  __modalCloseTimer = setTimeout(()=>{
+    overlay.classList.remove('active','closing');
+    document.getElementById('modalBox').innerHTML = '';
+  }, 210);
 }
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape' && document.getElementById('modalOverlay')?.classList.contains('active') && !document.querySelector('.tdate-panel')) closeModal();
+});
 
 /* ================= EVENT BINDING PER VIEW ================= */
 function bindViewEvents(v){
@@ -24,6 +49,7 @@ function bindViewEvents(v){
     document.querySelectorAll('[data-pending-loan]').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button')) return; openLoanDetailModal(tr.dataset.pendingLoan); }));
     document.querySelectorAll('[data-pending-welf]').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button')) return; openWelfareDetailModal(tr.dataset.pendingWelf); }));
     document.querySelectorAll('[data-recent-leave]').forEach(el=>el.addEventListener('click', ()=>openLeaveDetailModal(el.dataset.recentLeave)));
+    document.querySelectorAll('[data-bday-emp]').forEach(el=>el.addEventListener('click', ()=>openEmployeeDetailModal(el.dataset.bdayEmp)));
   }
   else if(v==='employees'){
     document.getElementById('btnAddEmp')?.addEventListener('click', ()=>openEmployeeModal(null));
@@ -114,7 +140,7 @@ function bindViewEvents(v){
     pills.forEach(p=>p.addEventListener('click', ()=>{
       pills.forEach(x=>x.classList.remove('active'));
       p.classList.add('active');
-      if(p.dataset.report==='individual') renderReportIndividual(); else renderReportOverall();
+      if(p.dataset.report==='individual') renderReportIndividual(); else if(p.dataset.report==='vacation') renderReportVacation(); else renderReportOverall();
     }));
     renderReportIndividual();
   }
@@ -374,10 +400,11 @@ function bindLoginForm(){
   if(!btn) return;
   const toggleBtn = document.getElementById('btnTogglePwd');
   if(toggleBtn){
+    toggleBtn.innerHTML = EYE_ICON;
     toggleBtn.addEventListener('click', ()=>{
       const showing = pEl.type === 'text';
       pEl.type = showing ? 'password' : 'text';
-      toggleBtn.textContent = showing ? '👁' : '🙈';
+      toggleBtn.innerHTML = showing ? EYE_ICON : EYE_OFF_ICON;
     });
   }
   const tryLogin = async ()=>{
@@ -395,7 +422,8 @@ function bindLoginForm(){
       afterLogin();
       updateSyncStatus(gasReady() ? (state.lastSync? 'ok':'none') : 'none');
     } else {
-      document.getElementById('loginError').style.display = 'block';
+      const err = document.getElementById('loginError');
+      err.style.display = 'none'; void err.offsetWidth; err.style.display = 'block';
     }
   };
   btn.addEventListener('click', tryLogin);

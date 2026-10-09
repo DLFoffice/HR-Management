@@ -6,36 +6,57 @@
 <title>ระบบบริหารงานบุคคล</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#17735F">
+<script>
+  /* apply saved / system theme before first paint to avoid a flash */
+  (function(){ try{ var t = localStorage.getItem('hr_theme'); if(!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); }catch(e){} })();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<div id="topProgress"></div>
+
 <div id="loginScreen" class="login-screen" style="display:none;">
-  <div class="login-card">
-    <div class="login-logo" id="loginLogo">บค</div>
-    <h1>ระบบบริหารงานบุคคล</h1>
-    <div class="login-sub">เข้าสู่ระบบเพื่อดำเนินการต่อ</div>
-    <div class="field full">
-      <label>ชื่อผู้ใช้</label>
-      <input type="text" id="loginUsername" placeholder="เลขบัตรประชาชน 13 หลัก หรือชื่อผู้ใช้แอดมิน">
+  <section class="login-art" aria-hidden="true">
+    <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="grain"></span>
+    <div class="art-brand"><div class="login-logo" id="loginLogo">บค</div><span>ระบบบริหารงานบุคคล</span></div>
+    <div>
+      <h2>ดูแลคนในองค์กร ได้ในที่เดียว</h2>
+      <p>บันทึกวันลา เงินกู้ สวัสดิการ ผลประเมิน และการอบรม ซิงค์กับ Google Sheet ของหน่วยงาน</p>
     </div>
-    <div class="field full">
-      <label>รหัสผ่าน</label>
-      <div class="pwd-field">
-        <input type="password" id="loginPassword" placeholder="รหัสผ่าน">
-        <button type="button" id="btnTogglePwd" class="pwd-toggle" aria-label="แสดง/ซ่อนรหัสผ่าน">👁</button>
+    <div class="art-foot" id="loginArtFoot"></div>
+  </section>
+  <section class="login-pane">
+    <button type="button" class="icon-btn theme-toggle login-theme" data-theme-toggle aria-label="สลับโหมดสว่าง/มืด">
+      <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <div class="login-card">
+      <h1>เข้าสู่ระบบ</h1>
+      <div class="login-sub">ยินดีต้อนรับกลับมา กรอกข้อมูลเพื่อดำเนินการต่อ</div>
+      <div class="field full">
+        <label for="loginUsername">ชื่อผู้ใช้</label>
+        <input type="text" id="loginUsername" autocomplete="username" placeholder="เลขบัตรประชาชน 13 หลัก หรือชื่อผู้ใช้แอดมิน">
+      </div>
+      <div class="field full">
+        <label for="loginPassword">รหัสผ่าน</label>
+        <div class="pwd-field">
+          <input type="password" id="loginPassword" autocomplete="current-password" placeholder="รหัสผ่าน">
+          <button type="button" id="btnTogglePwd" class="pwd-toggle" aria-label="แสดง/ซ่อนรหัสผ่าน"></button>
+        </div>
+      </div>
+      <div class="field-error" id="loginError">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง ตรวจสอบแล้วลองอีกครั้ง</div>
+      <div class="muted" id="loginLoading" style="display:none; font-size:12.5px; margin-bottom:10px;"></div>
+      <button class="btn btn-primary" id="btnLoginSubmit" style="width:100%; justify-content:center; margin-top:4px;">เข้าสู่ระบบ</button>
+      <div class="login-hint">
+        <b>พนักงาน</b> ใช้เลขบัตรประชาชน 13 หลักเป็นทั้งชื่อผู้ใช้และรหัสผ่าน<br>
+        <b>ผู้ดูแลระบบ</b> ใช้บัญชีที่กำหนดไว้ในระบบ
       </div>
     </div>
-    <div class="field-error" id="loginError">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
-    <div class="muted" id="loginLoading" style="display:none; font-size:12.5px; margin-bottom:10px;"></div>
-    <button class="btn btn-primary" id="btnLoginSubmit" style="width:100%; justify-content:center; margin-top:6px;">เข้าสู่ระบบ</button>
-    <div class="login-hint">
-      <b>พนักงานทั่วไป:</b> ใช้เลขบัตรประชาชน 13 หลักเป็นทั้งชื่อผู้ใช้และรหัสผ่าน<br>
-      <b>ผู้ดูแลระบบ:</b> ใช้บัญชีที่กำหนดไว้ในระบบ
-    </div>
-  </div>
+  </section>
 </div>
 
 <div id="app" style="display:none;">
@@ -44,19 +65,31 @@
       <div class="brand-seal" id="brandSeal">บค</div>
       <div class="brand-text">
         <div class="t1">ระบบบริหารงานบุคคล</div>
-        <div class="t2">ปีงบประมาณ 2569</div>
+        <div class="t2" id="brandFY">ปีงบประมาณ</div>
       </div>
     </div>
     <nav class="navlist" id="navlist"></nav>
-    <div id="adminBadge" style="padding:0 20px 14px;"></div>
-    <div class="sidebar-foot" id="sidebarFoot" style="cursor:pointer;" title="คลิกเพื่อซิงค์ข้อมูลใหม่">
-      สถานะเชื่อมต่อ Google Sheet
-      <span class="sync-dot sync-none" id="syncDot"></span>
-      <div id="syncText" style="margin-top:4px; color:#B9C3C7;">ยังไม่ได้ตั้งค่า</div>
+    <div id="adminBadge"></div>
+    <div class="sidebar-foot" id="sidebarFoot" title="คลิกเพื่อซิงค์ข้อมูลใหม่">
+      <span class="sync-dot sync-none" id="syncDot"></span> Google Sheet
+      <div id="syncText">ยังไม่ได้ตั้งค่า</div>
     </div>
   </aside>
+  <div class="scrim" id="navScrim"></div>
 
   <main id="main">
+    <header class="topbar" id="topbar">
+      <button type="button" class="icon-btn" id="btnMenu" aria-label="เปิดเมนู">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </button>
+      <div class="crumb" id="topCrumb"></div>
+      <div class="spacer"></div>
+      <span class="today-chip" id="todayChip"></span>
+      <button type="button" class="icon-btn theme-toggle" data-theme-toggle aria-label="สลับโหมดสว่าง/มืด">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </header>
     <div id="syncBanner" class="sync-banner" style="display:none;">
       <span id="syncBannerText"></span>
       <button class="btn btn-sm" id="syncBannerRetry">ลองซิงค์อีกครั้ง</button>
@@ -73,7 +106,7 @@
 
 <div id="printArea"></div>
 
-<div id="imgHoverPreview" style="display:none; position:fixed; z-index:300; pointer-events:none; background:#fff; padding:5px; border-radius:14px; box-shadow:0 18px 44px rgba(60,40,140,0.28); border:1px solid var(--line);">
+<div id="imgHoverPreview" style="display:none; position:fixed; z-index:300; pointer-events:none; background:var(--paper); padding:5px; border-radius:16px; box-shadow:var(--shadow-pop); border:1px solid var(--line);">
   <img style="width:210px; height:210px; object-fit:cover; border-radius:10px; display:block;">
 </div>
 
@@ -81,6 +114,8 @@
 <script src="js/auth.js"></script>
 <script src="js/storage-sync.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/leave-balance.js"></script>
+<script src="js/ui-motion.js"></script>
 <script src="js/datepicker.js"></script>
 <script src="js/nav-dashboard.js"></script>
 <script src="js/employees-orgchart.js"></script>

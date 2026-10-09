@@ -24,6 +24,18 @@ function viewSettings(){
   </div>
 
   <div class="panel">
+    <h2>นโยบายวันลาพักผ่อนสะสม (ยกยอดข้ามปีงบประมาณ)</h2>
+    <div class="policy-strip"><span class="policy-dot"></span>${esc(vacationPolicyText())}</div>
+    <div style="font-size:13.5px; color:var(--ink-soft); line-height:1.8;">
+      ระบบคำนวณ <b>ลาพักผ่อนสะสมยกมา</b> ของปีงบประมาณปัจจุบัน (${fiscalYearBE()}) อัตโนมัติจาก <b>ยอดคงเหลือของปีงบประมาณก่อนหน้า</b>
+      = สิทธิ์ปีนั้น + สะสมยกมาปีนั้น − วันลาพักผ่อนที่อนุมัติแล้ว (ไม่ติดลบ) และคำนวณต่อเนื่องทุกปีตั้งแต่ปีงบฐาน
+      <br>• ช่อง "ลาพักผ่อนสะสมยกมา" ในข้อมูลพนักงาน = ยอดตั้งต้น ณ ปีงบฐาน ${vacationPolicy().baseFY}
+      <br>• ดูยอดของทุกคน และที่มาย้อนหลังรายปี ได้ที่เมนู <b>รายงาน → วันลาพักผ่อนสะสม</b>
+      <br>• นโยบายนี้กำหนดไว้ในไฟล์ <code class="inline">js/leave-balance.js</code> (ค่า <code class="inline">VACATION_CARRY_POLICY</code>) เพื่อให้ทุกเครื่องคำนวณตรงกัน — เปลี่ยนปีงบฐานหรือเพดานสะสมได้ที่นั่น
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>2. วิธีสร้าง Web App (ทำครั้งเดียว)</h2>
     <div class="steps">
       <ol>
@@ -135,7 +147,7 @@ function viewSettings(){
         <b>ชื่อคอลัมน์จริงที่ระบบอ่านได้จากพนักงานคนแรก</b> (ใช้เทียบว่าคอลัมน์เลขบัตรประชาชนชื่อตรงกับ <code class="inline">idCard</code> หรือไม่ — เครื่องหมาย · แทนช่องว่างแฝงที่มองไม่เห็น)
       </div>
       <div style="background:var(--lav-bg); border-radius:10px; padding:10px 14px; font-family:monospace; font-size:12.5px; word-break:break-all;">
-        ${state.employees[0] ? Object.keys(state.employees[0]).map(k=>`<span style="display:inline-block; margin:2px 6px 2px 0; padding:2px 8px; background:#fff; border-radius:6px; border:1px solid var(--line-strong); ${k==='idCard'?'color:var(--green); font-weight:700;':''}">${esc(k.replace(/ /g,'·'))}</span>`).join('') : 'ยังไม่มีข้อมูลพนักงานให้ตรวจสอบ'}
+        ${state.employees[0] ? Object.keys(state.employees[0]).map(k=>`<span style="display:inline-block; margin:2px 6px 2px 0; padding:2px 8px; background:var(--paper); border-radius:6px; border:1px solid var(--line-strong); ${k==='idCard'?'color:var(--green); font-weight:700;':''}">${esc(k.replace(/ /g,'·'))}</span>`).join('') : 'ยังไม่มีข้อมูลพนักงานให้ตรวจสอบ'}
       </div>
       <div class="muted" style="font-size:12px; margin-top:8px;">
         ${state.employees[0] && state.employees[0].idCard!==undefined ? '✓ พบคอลัมน์ idCard ในข้อมูล' : '✗ ไม่พบคอลัมน์ชื่อ idCard เป๊ะๆ เลย — ดูรายการด้านบนว่าคอลัมน์เลขบัตรของคุณถูกอ่านมาเป็นชื่ออะไร แล้วไปแก้ชื่อหัวคอลัมน์ในชีตให้เป็น idCard เป๊ะๆ'}

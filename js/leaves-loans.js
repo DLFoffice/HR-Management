@@ -204,6 +204,7 @@ function leaveFormHtml(rec){
     <div class="field"><label>ถึงวันที่ *</label>${thaiDateFieldHtml('f_end', r.endDate)}</div>
     <div class="field"><label>จำนวนวันลา (คำนวณอัตโนมัติ)</label><input type="text" id="f_days" value="${r.days??''}" readonly style="background:var(--lav-bg); color:var(--lav-deep); font-weight:600; cursor:not-allowed;"></div>
     <div class="field"><label>เหตุผลการลา</label><input id="f_reason" value="${esc(r.reason)}"></div>
+    <div class="field full"><div id="f_balanceHint" class="balance-hint"></div></div>
     <div class="field full"><label>หมายเหตุ</label><textarea id="f_note">${esc(r.note)}</textarea></div>
   </div>
   <div style="margin-top:6px; padding-top:16px; border-top:1px solid var(--line);">
@@ -239,8 +240,34 @@ function openLeaveModal(id){
     const end = document.getElementById('f_end').value;
     document.getElementById('f_days').value = calcLeaveDays(start, end);
   };
-  document.getElementById('f_start').addEventListener('change', recalcDays);
-  document.getElementById('f_end').addEventListener('change', recalcDays);
+  const updateHint = ()=>{
+    const box = document.getElementById('f_balanceHint');
+    if(!box) return;
+    const empId = document.getElementById('f_emp').value;
+    const type = document.getElementById('f_type').value;
+    const start = document.getElementById('f_start').value;
+    if(!empId){ box.innerHTML=''; box.classList.remove('show'); return; }
+    const fyBE = start ? fiscalYearBE(localDate(start)||new Date()) : fiscalYearBE();
+    const s = computeEmployeeSummary(empId, fyBE);
+    const row = s && s.leaveSummary.find(x=>x.key===type);
+    if(!row){ box.innerHTML=''; box.classList.remove('show'); return; }
+    // don't double-count the record being edited
+    let used = row.used;
+    if(rec && rec.leaveType===type && isApproved(rec) && rec.startDate && inRange(rec.startDate, s.fy.start, s.fy.end)) used -= safeNum(rec.days);
+    const thisReq = safeNum(document.getElementById('f_days').value);
+    const after = roundDays(row.total - used - thisReq);
+    box.innerHTML = `<span class="bh-label">${row.label} ปีงบ ${s.fy.be}</span>
+      ${row.carry ? `<span>สะสมยกมา <b>${row.carry}</b></span><span>+</span>` : ''}
+      <span>สิทธิ์ <b>${row.right}</b></span><span>·</span><span>ใช้ไป <b>${roundDays(used)}</b></span><span>·</span>
+      <span>คงเหลือหลังลาครั้งนี้ <b class="${after<0?'neg':''}">${after}</b> วัน</span>`;
+    box.classList.add('show');
+  };
+  const recalcAll = ()=>{ recalcDays(); updateHint(); };
+  document.getElementById('f_start').addEventListener('change', recalcAll);
+  document.getElementById('f_end').addEventListener('change', recalcAll);
+  document.getElementById('f_type').addEventListener('change', updateHint);
+  document.getElementById('f_emp').addEventListener('change', updateHint);
+  updateHint();
   document.getElementById('btnSaveLeave').addEventListener('click', ()=>{
     const empId = document.getElementById('f_emp').value;
     const start = document.getElementById('f_start').value;

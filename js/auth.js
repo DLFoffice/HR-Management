@@ -35,7 +35,7 @@ function logout(){
 function showLoginScreen(){
   const login = document.getElementById('loginScreen');
   const appEl = document.getElementById('app');
-  if(login) login.style.display = 'flex';
+  if(login) login.style.display = 'grid';
   if(appEl) appEl.style.display = 'none';
   const err = document.getElementById('loginError');
   if(err) err.style.display = 'none';
@@ -89,7 +89,7 @@ async function attemptLogin(username, password){
 
 function afterLogin(){
   showAppScreen();
-  state.currentView = isAdminUser() ? 'dashboard' : 'myhome';
+  if(!state.currentView || !currentNav().some(n=>n.id===state.currentView)) state.currentView = isAdminUser() ? 'dashboard' : 'myhome';
   renderBrand();
   renderNav();
   renderView();
@@ -98,12 +98,15 @@ function afterLogin(){
 function renderUserBadge(){
   const box = document.getElementById('adminBadge');
   if(!box || !state.currentUser) return;
-  const roleLabel = isAdminUser() ? 'ผู้ดูแลระบบ' : 'พนักงาน (ดูข้อมูลตนเอง)';
+  const roleLabel = isAdminUser() ? 'ผู้ดูแลระบบ' : 'พนักงาน';
+  const emp = isSelfUser() ? currentEmployee() : null;
+  const name = state.currentUser.name || roleLabel;
+  const avatar = emp ? avatarHtml(emp, 32) : esc(String(name).replace(/^(นาย|นางสาว|นาง)/,'').trim().slice(0,1) || 'A');
   box.innerHTML = `<div class="admin-badge on">
-    <span class="lbl"><span class="dot"></span>${esc(state.currentUser.name||roleLabel)}</span>
-    <button id="btnLogoutUser">ออก</button>
-  </div>
-  <div class="muted" style="font-size:10.5px; margin-top:6px; color:#C9D6E8;">${roleLabel}</div>`;
+    <span class="avatar-dot">${avatar}</span>
+    <span class="lbl"><span>${esc(name)}</span><small>${roleLabel}</small></span>
+    <button id="btnLogoutUser" title="ออกจากระบบ">ออก</button>
+  </div>`;
   document.getElementById('btnLogoutUser').addEventListener('click', logout);
 }
 

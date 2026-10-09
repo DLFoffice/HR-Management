@@ -1,17 +1,20 @@
 /* ===== reports-selfservice.js ===== */
 /* ================= REPORTS ================= */
-function computeEmployeeSummary(empId){
+function computeEmployeeSummary(empId, fyBE){
   const emp = employeeById(empId);
   if(!emp) return null;
-  const fy = fiscalYearRange();
+  fyBE = Number(fyBE) || fiscalYearBE();
+  const fy = fiscalRangeOfBE(fyBE);
+  fy.be = fyBE;
   const leaves = state.leaves.filter(l=>l.employeeId===empId && l.startDate && inRange(l.startDate, fy.start, fy.end) && isApproved(l));
   const used = {'ป':0,'พ':0,'ก':0};
-  leaves.forEach(l=>{ if(used[l.leaveType]!==undefined) used[l.leaveType]+=Number(l.days||0); });
+  leaves.forEach(l=>{ if(used[l.leaveType]!==undefined) used[l.leaveType]+=safeNum(l.days); });
+  const vac = vacationBalance(emp, fyBE);
   const leaveSummary = [
-    {label:'ลาป่วย', right:safeNum(emp.sickRight), carry:safeNum(emp.carrySick), used:used['ป']},
-    {label:'ลาพักผ่อน', right:safeNum(emp.vacationRight), carry:safeNum(emp.carryVacation), used:used['พ']},
-    {label:'ลากิจ', right:safeNum(emp.personalRight), carry:safeNum(emp.carryPersonal), used:used['ก']}
-  ].map(r=>({...r, total:r.right+r.carry, remaining:r.right+r.carry-r.used}));
+    {key:'ป', label:'ลาป่วย', right:safeNum(emp.sickRight), carry:safeNum(emp.carrySick), used:used['ป']},
+    {key:'พ', label:'ลาพักผ่อน', right:vac.right, carry:vac.carry, used:vac.used, auto:vac.auto, note:vacationCarryNote(vac), vacation:vac},
+    {key:'ก', label:'ลากิจ', right:safeNum(emp.personalRight), carry:safeNum(emp.carryPersonal), used:used['ก']}
+  ].map(r=>({...r, total:roundDays(r.right+r.carry), remaining:roundDays(r.right+r.carry-r.used)}));
 
   const loans = state.loans.filter(l=>l.employeeId===empId && isApproved(l));
   const loanSummary = LOAN_TYPES.map(type=>{
@@ -28,7 +31,7 @@ function computeEmployeeSummary(empId){
     return {label:c.label, limit, used:usedAmt, remaining: Math.max(limit-usedAmt,0)};
   });
 
-  return {emp, leaveSummary, loanSummary, welfareSummary, fy};
+  return {emp, leaveSummary, loanSummary, welfareSummary, fy, vacation:vac};
 }
 
 function viewReports(){
@@ -39,6 +42,7 @@ function viewReports(){
   <div class="pill-nav">
     <button data-report="individual" class="active">สรุปรายบุคคล</button>
     <button data-report="overall">สรุปภาพรวมทุกคน</button>
+    <button data-report="vacation">วันลาพักผ่อนสะสม</button>
   </div>
   <div id="reportBody"></div>
   `;
@@ -136,6 +140,23 @@ function renderReportIndividual(){
   });
 }
 
+/* Ring-style balance cards for the on-screen report / employee home */
+function leaveBalanceCardsHtml(s){
+  const tone = {'ป':'rose','พ':'accent','ก':'amber'};
+  return `<div class="balance-cards">${s.leaveSummary.map(r=>{
+    const pct = r.total>0 ? Math.max(0, Math.min(100, (r.remaining/r.total)*100)) : 0;
+    return `<div class="balance-card tone-${tone[r.key]||'accent'}">
+      <div class="ring" style="--p:${pct.toFixed(1)};"><div class="ring-inner"><b>${r.remaining}</b><span>คงเหลือ</span></div></div>
+      <div class="balance-meta">
+        <div class="balance-title">${r.label}</div>
+        <div class="balance-line"><span>สิทธิ์ปีนี้</span><b>${r.right}</b></div>
+        <div class="balance-line"><span>สะสมยกมา</span><b>${r.carry}</b></div>
+        <div class="balance-line"><span>ใช้ไปแล้ว</span><b>${r.used}</b></div>
+        ${r.auto ? `<div class="balance-chip" title="${esc(r.note)}">ยกยอดจากปีงบ ${r.vacation.prev ? r.vacation.prev.fy : s.fy.be-1}</div>` : ''}
+      </div>
+    </div>`;}).join('')}</div>`;
+}
+
 function individualReportHtml(s, forPrint, skipHeader){
   const e = s.emp;
   return `
@@ -156,9 +177,11 @@ function individualReportHtml(s, forPrint, skipHeader){
     <div><span class="k">วันเกษียณอายุ: </span>${buddhistDate(e.retireDate)}</div>
   </div>
 
-  <div class="doc-section-title">สรุปวันลา ปีงบประมาณ ${s.fy.start.getFullYear()+543}-${s.fy.end.getFullYear()+543}</div>
-  <table class="reg"><thead><tr><th>หมวดวันลา</th><th class="num">สิทธิ์ตั้งต้น</th><th class="num">สะสมยกมา</th><th class="num">รวมสิทธิ์</th><th class="num">ใช้ไปแล้ว</th><th class="num">คงเหลือ</th></tr></thead>
-  <tbody>${s.leaveSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${r.right}</td><td class="num">${r.carry}</td><td class="num">${r.total}</td><td class="num">${r.used}</td><td class="num">${r.remaining}</td></tr>`).join('')}</tbody></table>
+  <div class="doc-section-title">สรุปวันลา ปีงบประมาณ ${s.fy.be}</div>
+  ${forPrint ? '' : leaveBalanceCardsHtml(s)}
+  <table class="reg${forPrint?'':' compact-table'}"><thead><tr><th>หมวดวันลา</th><th class="num">สิทธิ์ปีนี้</th><th class="num">สะสมยกมา</th><th class="num">รวมสิทธิ์</th><th class="num">ใช้ไปแล้ว</th><th class="num">คงเหลือ</th></tr></thead>
+  <tbody>${s.leaveSummary.map(r=>`<tr><td>${r.label}${r.auto?' <span class="tag tag-navy" title="คำนวณอัตโนมัติจากยอดคงเหลือปีที่แล้ว">ยกยอดอัตโนมัติ</span>':''}</td><td class="num">${r.right}</td><td class="num">${r.carry}</td><td class="num">${r.total}</td><td class="num">${r.used}</td><td class="num"><b>${r.remaining}</b></td></tr>`).join('')}</tbody></table>
+  ${(()=>{ const v=s.leaveSummary.find(r=>r.key==='พ'); return v && v.auto ? `<div class="carry-note">↳ ลาพักผ่อนสะสมยกมา ${v.carry} วัน — ${esc(v.note)}</div>` : ''; })()}
 
   <div class="doc-section-title">สรุปเงินกู้</div>
   <table class="reg"><thead><tr><th>หมวดเงินกู้</th><th class="num">วงเงินสิทธิ์สูงสุด</th><th class="num">ยอดคงค้างปัจจุบัน</th></tr></thead>
@@ -169,6 +192,86 @@ function individualReportHtml(s, forPrint, skipHeader){
   <tbody>${s.welfareSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${money(r.limit)}</td><td class="num">${money(r.used)}</td><td class="num">${money(r.remaining)}</td></tr>`).join('')}</tbody></table>
   ${forPrint? `<div style="margin-top:26px; font-size:12px; color:var(--ink-soft);">พิมพ์เมื่อ ${buddhistDate(todayStr())}</div>` : ''}
   `;
+}
+
+/* ---------- Vacation carry-over report (all employees, chosen FY) ---------- */
+let vacationReportFY = null;
+function vacationReportRows(fyBE){
+  const q = (document.getElementById('vacReportSearch')?.value||'').trim().toLowerCase();
+  return groupEmployeesByDept(state.employees).flatMap(g=>g.list)
+    .filter(e=>!q || [e.code,e.name,e.position,e.department].some(v=>String(v||'').toLowerCase().includes(q)))
+    .map(e=>({ e, v: vacationBalance(e, fyBE) }));
+}
+function vacationReportTableHtml(rows, fyBE, forPrint){
+  return `
+  ${forPrint? `<div class="doc-header">${state.settings.logoUrl? `<img src="${esc(state.settings.logoUrl)}" style="height:44px; object-fit:contain; margin-bottom:8px;">` : ''}<div class="org">รายงานวันลาพักผ่อนสะสม</div><div class="title">ปีงบประมาณ ${fyBE}</div></div>` : ''}
+  <table class="reg"><thead><tr>
+    <th class="rownum">#</th><th>ชื่อ-นามสกุล</th><th>กลุ่มงาน</th>
+    <th class="num">คงเหลือปีงบ ${fyBE-1}</th><th class="num">สะสมยกมา</th><th class="num">สิทธิ์ปีนี้</th><th class="num">รวมสิทธิ์</th><th class="num">ใช้ไป</th><th class="num">คงเหลือ</th>
+  </tr></thead>
+  <tbody>${rows.length ? rows.map((r,i)=>{
+    const prev = r.v.prev;
+    return `<tr${forPrint?'':` class="row-clickable" data-vac-emp="${r.e.id}"`}>
+      <td class="rownum">${i+1}</td>
+      <td>${forPrint?'':avatarHtml(r.e,24)+' '}<span${forPrint?'':' style="margin-left:6px;"'}>${esc(r.e.name)}</span></td>
+      <td class="muted">${esc(r.e.department||'')}</td>
+      <td class="num">${prev ? prev.remaining : '-'}</td>
+      <td class="num">${r.v.carry}${prev && prev.lost>0 ? ` <span class="tag tag-amber" title="เกินเพดาน">−${prev.lost}</span>`:''}</td>
+      <td class="num">${r.v.right}</td>
+      <td class="num">${r.v.total}</td>
+      <td class="num">${r.v.used}</td>
+      <td class="num"><b class="${r.v.remaining<0?'neg':''}">${r.v.remaining}</b></td>
+    </tr>`;}).join('') : `<tr class="empty-row"><td colspan="9">ไม่พบข้อมูลพนักงาน</td></tr>`}</tbody></table>`;
+}
+function vacationPolicyText(){
+  const p = vacationPolicy();
+  if(!p.enabled) return 'ปิดการยกยอดอัตโนมัติ — ใช้ค่าสะสมยกมาที่กรอกไว้';
+  const cap = p.capMode==='fixed' ? `ยกยอดได้ไม่เกิน ${p.capDays} วัน`
+    : p.capMode==='gov' ? `สิทธิ์ปีนี้ + สะสม รวมไม่เกิน ${p.govTotal} วัน (อายุงาน ${p.govSeniorYears} ปีขึ้นไป ไม่เกิน ${p.govTotalSenior} วัน)`
+    : 'ยกยอดคงเหลือทั้งหมด ไม่จำกัดเพดาน';
+  return `ปีงบฐาน ${p.baseFY} · ${cap}`;
+}
+function renderReportVacation(){
+  const body = document.getElementById('reportBody');
+  const cur = fiscalYearBE();
+  if(!vacationReportFY) vacationReportFY = cur;
+  const p = vacationPolicy();
+  const years = []; for(let y = Math.min(p.baseFY, cur-1); y <= cur+1; y++) years.push(y);
+  body.innerHTML = `
+  <div class="panel">
+    <div class="searchbar">
+      <select id="vacReportFY">${years.map(y=>`<option value="${y}" ${y===vacationReportFY?'selected':''}>ปีงบประมาณ ${y}${y===cur?' (ปัจจุบัน)':''}</option>`).join('')}</select>
+      <input type="text" id="vacReportSearch" placeholder="ค้นหาชื่อ / รหัส / กลุ่มงาน">
+      <button class="btn btn-gold" id="btnPrintVacation">พิมพ์ / บันทึก PDF</button>
+    </div>
+    <div class="policy-strip"><span class="policy-dot"></span>${esc(vacationPolicyText())}<span class="muted"> · คลิกที่รายชื่อเพื่อดูที่มาของยอดสะสมย้อนหลัง</span></div>
+    <div class="table-wrap" id="vacReportWrap"></div>
+  </div>`;
+  const draw = ()=>{
+    const rows = vacationReportRows(vacationReportFY);
+    document.getElementById('vacReportWrap').innerHTML = vacationReportTableHtml(rows, vacationReportFY);
+    document.querySelectorAll('[data-vac-emp]').forEach(tr=>tr.addEventListener('click', ()=>openVacationHistoryModal(tr.dataset.vacEmp, vacationReportFY)));
+  };
+  document.getElementById('vacReportFY').addEventListener('change', e=>{ vacationReportFY = Number(e.target.value); draw(); });
+  document.getElementById('vacReportSearch').addEventListener('input', draw);
+  document.getElementById('btnPrintVacation').addEventListener('click', ()=>{
+    printDocument(vacationReportTableHtml(vacationReportRows(vacationReportFY), vacationReportFY, true), {title:'รายงานวันลาพักผ่อนสะสม ปีงบประมาณ '+vacationReportFY});
+  });
+  draw();
+}
+function openVacationHistoryModal(empId, fyBE){
+  const emp = employeeById(empId); if(!emp) return;
+  const v = vacationBalance(emp, fyBE);
+  const rows = [...v.history, { fy:v.fy, right:v.right, carry:v.carry, used:v.used, remaining:v.remaining, current:true }];
+  openModal(`
+    <div class="modal-head-person">${avatarHtml(emp,48)}<div><h3>${esc(emp.name)}</h3><div class="muted">ที่มาของยอดวันลาพักผ่อนสะสม</div></div></div>
+    <div class="table-wrap"><table class="reg">
+      <thead><tr><th>ปีงบประมาณ</th><th class="num">สะสมยกมา</th><th class="num">สิทธิ์</th><th class="num">ใช้ไป</th><th class="num">คงเหลือ</th><th class="num">ยกไปปีถัดไป</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr${r.current?' class="row-current"':''}><td>${r.fy}${r.current?' <span class="tag tag-navy">ปีที่เลือก</span>':''}</td><td class="num">${r.carry}</td><td class="num">${r.right}</td><td class="num">${r.used}</td><td class="num"><b>${r.remaining}</b></td><td class="num">${r.current?'-':r.carriedOut+(r.lost>0?` <span class="tag tag-amber">ตัด ${r.lost}</span>`:'')}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="muted" style="font-size:12.5px; margin-top:10px;">${v.auto ? 'ยอดตั้งต้น ณ ปีงบฐาน มาจากช่อง "ลาพักผ่อนสะสมยกมา" ในข้อมูลพนักงาน · นับเฉพาะใบลาที่อนุมัติแล้ว' : 'ปีนี้ใช้ยอดสะสมยกมาตามที่บันทึกไว้ในข้อมูลพนักงาน'}</div>
+    <div class="modal-actions"><button class="btn" id="btnCancelModal">ปิด</button></div>
+  `, 720);
 }
 
 function renderReportOverall(){
@@ -215,10 +318,10 @@ function overallReportHtml(rows, fy, forPrint){
    preview. Avoids fighting the app's own CSS/sidebar during print. */
 const PRINT_DOC_CSS = `
 :root{
-  --lav:#8B7FF0; --lav-2:#A79BFF; --lav-deep:#6558D3; --lav-bg:#EEEBFF;
-  --mint:#4FD1B5; --peach:#FF9F7A; --pink:#FF8FB8; --sun:#FFC24B;
-  --ink:#2C2A45; --ink-soft:#7B7897; --ink-faint:#A7A4C2;
-  --line:#EAE7FA; --line-strong:#D9D4F5;
+  --lav:#17735F; --lav-2:#2A9478; --lav-deep:#0F5546; --lav-bg:#E3F1EC;
+  --mint:#2A9478; --peach:#E0A030; --pink:#D45468; --sun:#E0A030;
+  --ink:#14201C; --ink-soft:#5D6B66; --ink-faint:#93A09B;
+  --line:#E3E8E5; --line-strong:#D2DAD6;
   --green:#37B893; --green-bg:#DEFBF3; --red:#FF6B7A; --red-bg:#FFE4E7;
   --amber:#F0A93F; --amber-bg:#FFF1DA; --ease:cubic-bezier(.22,1,.36,1);
 }
@@ -268,7 +371,7 @@ table.reg th.rownum, table.reg td.rownum{color:var(--ink-faint); font-size:11px;
 .leave-doc-approval .approval-sign{text-align:center;}
 .orgchart-wrap{padding:6px 0;}
 .org-head-wrap{display:flex; flex-direction:column; align-items:center;}
-.org-head-box{ display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, #123A6B 0%, #2E7DC9 100%); color:#fff; padding:10px 18px; border-radius:14px; }
+.org-head-box{ display:inline-flex; align-items:center; gap:10px; background:#17735F; color:#fff; padding:10px 18px; border-radius:14px; }
 .org-head-name{font-size:14px; font-weight:700;}
 .org-head-title{font-size:11px; color:#DCEBFF; margin-top:2px;}
 .org-head-stem{width:2px; height:22px; background:var(--line-strong); margin:0 auto;}
@@ -330,12 +433,12 @@ function printDocument(html, opts){
   .pph-text { flex:1; text-align:center; }
   .pph-title { font-size:15px; font-weight:700; margin:2px 0; color:#1e2f4f; }
   .pph-sub { font-size:10.5px; color:#666; }
-  .pph-bar { margin-top:7px; height:3px; border-radius:2px; background:linear-gradient(90deg,#6558D3 0%,#6558D3 70%,#A79BFF 100%); }
+  .pph-bar { margin-top:7px; height:3px; border-radius:2px; background:linear-gradient(90deg,#17735F 0%,#17735F 70%,#E0A030 100%); }
   .pdf-print-footnote { text-align:right; font-size:9px; color:#999; padding:10px 30px 0; }
-  .pdf-print-toolbar { position:sticky; top:0; z-index:10; background:#1e2f4f; color:#fff; padding:10px 16px;
+  .pdf-print-toolbar { position:sticky; top:0; z-index:10; background:#14201C; color:#fff; padding:10px 16px;
     display:flex; align-items:center; justify-content:space-between; font-size:13px; font-family:'Noto Sans Thai',sans-serif; gap:10px; }
   .pdf-print-toolbar button { font-family:'Noto Sans Thai',sans-serif; font-size:13px; font-weight:600; padding:7px 16px;
-    border:none; border-radius:8px; background:#6558D3; color:#fff; cursor:pointer; }
+    border:none; border-radius:8px; background:#17735F; color:#fff; cursor:pointer; }
   .pdf-print-toolbar span { opacity:.85; }
   @media print {
     html, body { background:#fff; }
@@ -391,7 +494,8 @@ function findPreviousLeaveOfType(rec){
 }
 
 function leaveStatsTableHtml(empId, currentRec){
-  const s = computeEmployeeSummary(empId);
+  const recFY = currentRec && currentRec.startDate ? fiscalYearBE(localDate(currentRec.startDate)||new Date()) : null;
+  const s = computeEmployeeSummary(empId, recFY);
   if(currentRec && currentRec.leaveType && !isApproved(currentRec)){
     // the leave being printed isn't counted yet by computeEmployeeSummary (only approved
     // leaves are) — add it in so the printed form reflects the balance including this request
@@ -505,7 +609,7 @@ function sickPersonalFormPrintHtml(rec, emp, submit){
 }
 
 function vacationFormPrintHtml(rec, emp, submit){
-  const s = computeEmployeeSummary(rec.employeeId);
+  const s = computeEmployeeSummary(rec.employeeId, rec.startDate ? fiscalYearBE(localDate(rec.startDate)||new Date()) : null);
   const vac = s.leaveSummary.find(r=>r.label==='ลาพักผ่อน') || {right:0, carry:0, total:0};
   return `
   <div class="leave-doc">
@@ -730,8 +834,8 @@ function kpiCardHtml(k){
   <div class="panel">
     <h2>${esc(k.year)} — ${esc(k.period)}</h2>
     <div class="grid grid-2" style="margin-bottom:14px;">
-      <div class="stat" style="--stat-accent:linear-gradient(90deg,#8B7FF0,#A79BFF);"><div class="label">คะแนนรวม</div><div class="value">${safeNum(k.overallScore).toFixed(1)}</div><div class="foot">จาก 100 คะแนน</div></div>
-      <div class="stat" style="--stat-accent:linear-gradient(90deg,#4FD1B5,#7EE8D0);"><div class="label">ระดับผลงาน</div><div class="value" style="font-size:20px;">${esc(grade)}</div></div>
+      <div class="stat" style="--tone:var(--accent);"><div class="label">คะแนนรวม</div><div class="value">${safeNum(k.overallScore).toFixed(1)}</div><div class="foot">จาก 100 คะแนน</div></div>
+      <div class="stat" style="--tone:var(--marigold);"><div class="label">ระดับผลงาน</div><div class="value" style="font-size:20px;">${esc(grade)}</div></div>
     </div>
     <table class="reg">
       <thead><tr><th>หัวข้อประเมิน</th><th class="num">คะแนน (เต็ม 100)</th></tr></thead>

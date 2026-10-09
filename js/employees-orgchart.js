@@ -118,9 +118,14 @@ function employeeFormHtml(emp){
     <div class="field"><label>สิทธิ์ลากิจ (วัน/ปี)</label><input type="number" id="f_personalRight" value="${e.personalRight??15}"></div>
     <div class="field"></div>
     <div class="field"><label>ลาป่วยสะสมยกมา</label><input type="number" id="f_carrySick" value="${e.carrySick??0}"></div>
-    <div class="field"><label>ลาพักผ่อนสะสมยกมา</label><input type="number" id="f_carryVacation" value="${e.carryVacation??0}"></div>
+    <div class="field"><label>ลาพักผ่อนสะสมยกมา (ยอดตั้งต้น ปีงบ ${Number(e.carryVacationBaseFY)||vacationPolicy().baseFY})</label><input type="number" step="0.5" id="f_carryVacation" value="${e.carryVacation??0}"></div>
     <div class="field"><label>ลากิจสะสมยกมา</label><input type="number" id="f_carryPersonal" value="${e.carryPersonal??0}"></div>
     <div class="field"></div>
+    ${emp && vacationPolicy().enabled ? (()=>{ const vb = vacationBalance(emp, fiscalYearBE()); return `<div class="field full"><div class="carry-info">
+      <div class="carry-info-title">วันลาพักผ่อนปีงบ ${vb.fy} (คำนวณอัตโนมัติ)</div>
+      <div class="carry-info-row"><span>สะสมยกมา <b>${vb.carry}</b></span><span>+ สิทธิ์ปีนี้ <b>${vb.right}</b></span><span>= รวม <b>${vb.total}</b></span><span>ใช้ไป <b>${vb.used}</b></span><span>คงเหลือ <b>${vb.remaining}</b></span></div>
+      <div class="muted" style="font-size:12px;">${esc(vacationCarryNote(vb))}</div>
+    </div></div>`; })() : ''}
     <div class="field"><label>วงเงินสวัสดิการ (บาท)</label><input type="number" id="f_welfareLimit" value="${e.welfareLimit??30000}"></div>
     <div class="field"><label>วงเงินกู้สามัญ (บาท)</label><input type="number" id="f_loanNormalLimit" value="${e.loanNormalLimit??50000}"></div>
     <div class="field"><label>วงเงินกู้ฉุกเฉิน (บาท)</label><input type="number" id="f_loanEmergencyLimit" value="${e.loanEmergencyLimit??5000}"></div>
@@ -184,7 +189,8 @@ function openEmployeeModal(id){
   document.getElementById('btnSaveEmp').addEventListener('click', ()=>{
     const name = document.getElementById('f_name').value.trim();
     if(!name){ document.getElementById('f_error').style.display='block'; return; }
-    const data = {
+    // keep any extra sheet columns this form doesn't edit (e.g. carryVacationBaseFY)
+    const data = Object.assign({}, emp||{}, {
       id: emp? emp.id : undefined,
       code: document.getElementById('f_code').value.trim(),
       idCard: document.getElementById('f_idCard').value.trim(),
@@ -198,7 +204,7 @@ function openEmployeeModal(id){
       vacationRight: Number(document.getElementById('f_vacationRight').value||0),
       personalRight: Number(document.getElementById('f_personalRight').value||0),
       carrySick: Number(document.getElementById('f_carrySick').value||0),
-      carryVacation: Number(document.getElementById('f_carryVacation').value||0),
+      carryVacation: safeNum(document.getElementById('f_carryVacation').value),
       carryPersonal: Number(document.getElementById('f_carryPersonal').value||0),
       welfareLimit: Number(document.getElementById('f_welfareLimit').value||0),
       loanNormalLimit: Number(document.getElementById('f_loanNormalLimit').value||0),
@@ -208,7 +214,7 @@ function openEmployeeModal(id){
       dentalImplant: Number(document.getElementById('f_dentalImplant').value||0),
       denture: Number(document.getElementById('f_denture').value||0),
       photoUrl: document.getElementById('f_photoUrl').value.trim()
-    };
+    });
     closeModal();
     if(emp) crudUpdate('employees', data); else crudAdd('employees', data);
     if(data.idCard) firestoreSaveLogin(data.idCard, data.id, data.name);

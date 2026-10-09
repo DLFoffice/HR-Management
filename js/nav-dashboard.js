@@ -21,24 +21,45 @@ const NAV_SELF = [
 ];
 function currentNav(){ return isAdminUser() ? NAV_ADMIN : NAV_SELF; }
 
+function navPendingCount(id){
+  if(!isAdminUser()) return 0;
+  const pend = r => (r.approvalStatus||'approved')==='pending';
+  if(id==='leaves') return state.leaves.filter(pend).length;
+  if(id==='loans') return state.loans.filter(pend).length;
+  if(id==='welfare') return state.welfare.filter(pend).length;
+  return 0;
+}
+
 function renderNav(){
   const nav = document.getElementById('navlist');
   const list = currentNav();
-  nav.innerHTML = list.map((n,i)=>`
-    <button data-view="${n.id}" class="${state.currentView===n.id?'active':''}">
-      <span>${n.label}</span>
-      <span class="idx">${String(i+1).padStart(2,'0')}</span>
-    </button>
-  `).join('');
+  nav.innerHTML = '<div class="nav-indicator"></div>' + list.map(n=>{
+    const c = navPendingCount(n.id);
+    return `${n.id==='reports'?'<div class="nav-sep"></div>':''}<button data-view="${n.id}" class="${state.currentView===n.id?'active':''}" title="${esc(n.label)}">
+      ${navIconSvg(n.id)}<span>${n.label}</span>${c?`<span class="nav-count" title="รออนุมัติ">${c}</span>`:''}
+    </button>`;
+  }).join('');
   nav.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', ()=>{ state.currentView = b.dataset.view; renderNav(); renderView(); });
+    b.addEventListener('click', ()=>{
+      if(state.currentView === b.dataset.view){ closeNavDrawer(); return; }
+      state.currentView = b.dataset.view;
+      nav.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
+      moveNavIndicator(false);
+      closeNavDrawer();
+      renderView();
+      window.scrollTo({top:0, behavior: prefersReducedMotion()?'auto':'smooth'});
+    });
   });
+  moveNavIndicator(true);
+  requestAnimationFrame(()=>moveNavIndicator(true));
   renderUserBadge();
 }
 
 function renderView(){
   const root = document.getElementById('viewRoot');
   const v = state.currentView;
+  const viewChanged = root.dataset.view !== v;
+  const scrollY = window.scrollY;
   if(v==='dashboard') root.innerHTML = viewDashboard();
   else if(v==='employees') root.innerHTML = viewEmployees();
   else if(v==='orgchart') root.innerHTML = viewOrgChart();
@@ -55,11 +76,23 @@ function renderView(){
   else if(v==='mywelfare') root.innerHTML = viewMyWelfare();
   else if(v==='mykpi') root.innerHTML = viewMyKpi();
   else if(v==='mytraining') root.innerHTML = viewMyTraining();
+  root.dataset.view = v;
   bindViewEvents(v);
+  updateTopbar();
+  // keep pending badges in the sidebar fresh after approvals / sync
+  const nav = document.getElementById('navlist');
+  if(nav) nav.querySelectorAll('button[data-view]').forEach(b=>{
+    const c = navPendingCount(b.dataset.view);
+    let badge = b.querySelector('.nav-count');
+    if(c && !badge){ badge = document.createElement('span'); badge.className='nav-count'; b.appendChild(badge); }
+    if(badge){ if(c) badge.textContent = c; else badge.remove(); }
+  });
+  if(viewChanged) playViewEnter(root); else window.scrollTo(0, scrollY);
   if(v==='dashboard'){
     setTimeout(renderDashboardCharts, 0);
     document.querySelectorAll('.stat .value[data-to]').forEach(el=>{
-      animateValue(el, Number(el.dataset.to||0), Number(el.dataset.dec||0));
+      if(viewChanged) animateValue(el, Number(el.dataset.to||0), Number(el.dataset.dec||0));
+      else el.textContent = Number(el.dataset.to||0).toLocaleString('th-TH',{maximumFractionDigits:Number(el.dataset.dec||0), minimumFractionDigits:Number(el.dataset.dec||0)});
     });
   }
 }
@@ -85,8 +118,8 @@ function monthlyLeaveTrend(fy){
   }
   state.leaves.forEach(l=>{
     if(!isApproved(l) || !l.startDate) return;
-    const d = new Date(l.startDate);
-    if(isNaN(d)) return;
+    const d = localDate(l.startDate);
+    if(!d) return;
     const b = buckets.find(x=>x.y===d.getFullYear() && x.m===d.getMonth());
     if(b) b.total += Number(l.days||0);
   });
@@ -116,8 +149,8 @@ function employeesOnProbation(){
   const now = new Date();
   return state.employees.filter(e=>{
     if(!e.hireDate) return false;
-    const d = new Date(e.hireDate);
-    if(isNaN(d)) return false;
+    const d = localDate(e.hireDate);
+    if(!d) return false;
     const days = (now-d)/(1000*60*60*24);
     return days>=0 && days<=PROBATION_DAYS;
   }).sort((a,b)=> new Date(b.hireDate)-new Date(a.hireDate));
@@ -156,12 +189,11 @@ function viewDashboard(){
 
   const now = new Date();
   const in12mo = new Date(); in12mo.setMonth(in12mo.getMonth()+12);
-  const upcomingRetire = state.employees.filter(e=>e.retireDate && new Date(e.retireDate)>=now && new Date(e.retireDate)<=in12mo)
+  const upcomingRetire = state.employees.filter(e=>e.retireDate && localDate(e.retireDate) && localDate(e.retireDate)>=now && localDate(e.retireDate)<=in12mo)
     .sort((a,b)=> new Date(a.retireDate)-new Date(b.retireDate));
 
   const thisMonth = now.getMonth();
-  const birthdays = state.employees.filter(e=>e.birthDate && new Date(e.birthDate).getMonth()===thisMonth)
-    .sort((a,b)=> new Date(a.birthDate).getDate()-new Date(b.birthDate).getDate());
+  const birthdays = birthdaysInMonth(now.getFullYear(), thisMonth);
 
   const recentLeaves = [...state.leaves].sort((a,b)=> new Date(b.submitDate||b.startDate)-new Date(a.submitDate||a.startDate)).slice(0,6);
 
@@ -192,22 +224,22 @@ function viewDashboard(){
     </div>
   </div>
 
-  <div class="grid grid-4" style="margin-bottom:20px;">
+  <div class="grid grid-4" style="margin-bottom:16px;">
     <div class="stat"><div class="label">พนักงานทั้งหมด</div><div class="value" id="statEmp" data-to="${totalEmp}" data-dec="0">0</div><div class="foot">${Object.entries(byDept).map(([k,v])=>k+' '+v).join(' · ')}</div></div>
     <div class="stat"><div class="label">วันลาสะสม (ปีงบประมาณนี้)</div><div class="value" id="statLeave" data-to="${leaveDaysTotal}" data-dec="1">0</div><div class="foot">วัน จากทั้งหมด ${leavesFY.length} รายการ</div></div>
     <div class="stat"><div class="label">เงินกู้คงค้าง</div><div class="value" id="statLoan" data-to="${loanOutstanding}" data-dec="0">0</div><div class="foot">${activeLoans.length} สัญญาที่ยังผ่อนอยู่ ${activeLoans.length?'('+loanBreakdownText+')':''}</div></div>
     <div class="stat"><div class="label">สวัสดิการเบิกใช้ (ปีงบนี้)</div><div class="value" id="statWelfare" data-to="${welfareUsed}" data-dec="0">0</div><div class="foot">${welfareFY.length} รายการเบิก</div></div>
   </div>
 
-  <div class="grid grid-3" style="margin-bottom:20px;">
+  <div class="grid grid-3" style="margin-bottom:16px;">
     <div class="stat"><div class="label">พนักงานลาวันนี้</div><div class="value" id="statOnLeave" data-to="${onLeaveToday.length}" data-dec="0">0</div><div class="foot">${onLeaveToday.length? 'ดูรายชื่อด้านล่าง' : 'ไม่มีใครลาวันนี้'}</div></div>
     <div class="stat"><div class="label">คะแนน KPI เฉลี่ย (ปี ${kpiYear})</div><div class="value" id="statKpi" data-to="${kpiAvg}" data-dec="1">0</div><div class="foot">ประเมินแล้ว ${kpiEvaluatedCount} จาก ${totalEmp} คน</div></div>
     <div class="stat"><div class="label">ชั่วโมงอบรมสะสม (ปีงบนี้)</div><div class="value" id="statTraining" data-to="${trainingHours}" data-dec="1">0</div><div class="foot">${trainingFY.length} รายการ · ${trainingEmpCount} คน</div></div>
   </div>
 
   ${pendingTotal>0 ? `
-  <div class="panel" style="border-left:4px solid var(--amber); margin-bottom:20px;">
-    <h2>รายการรออนุมัติ (${pendingTotal})</h2>
+  <div class="panel pending-panel">
+    <h2>รายการรออนุมัติ <span class="h-count">${pendingTotal} รายการ</span></h2>
     <div class="table-wrap"><table class="reg">
       <thead><tr><th>ประเภท</th><th>พนักงาน</th><th>รายละเอียด</th><th class="num">วันที่ยื่น</th><th>จัดการ</th></tr></thead>
       <tbody>
@@ -253,23 +285,21 @@ function viewDashboard(){
     <div class="panel">
       <h2>ใกล้เกษียณอายุ (12 เดือนข้างหน้า)</h2>
       ${upcomingRetire.length? upcomingRetire.map(e=>`
-        <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
-          <span>${esc(e.name)}</span><span class="muted">${buddhistDate(e.retireDate)}</span>
-        </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ไม่มีพนักงานใกล้เกษียณ</div>'}
+        <div class="list-row"><span class="who">${avatarHtml(e,26)}<span>${esc(e.name)}</span></span><span class="muted">${buddhistDate(e.retireDate)}</span></div>`).join('') : '<div class="empty-note">ไม่มีพนักงานใกล้เกษียณ</div>'}
     </div>
     <div class="panel">
-      <h2>วันเกิดเดือนนี้</h2>
-      ${birthdays.length? birthdays.map(e=>`
-        <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
-          <span>${esc(e.name)}</span><span class="muted">${new Date(e.birthDate).getDate()} ${THAI_MONTHS_SHORT[new Date(e.birthDate).getMonth()]}</span>
-        </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ไม่มีพนักงานเกิดเดือนนี้</div>'}
+      <h2>วันเกิดเดือน${THAI_MONTHS_FULL[thisMonth]} <span class="h-count">${birthdays.length} คน</span></h2>
+      ${birthdays.length? `<div class="bday-list">${birthdays.map(b=>`
+        <div class="bday-row row-clickable ${b.isToday?'is-today':''} ${b.isPast&&!b.isToday?'is-past':''}" data-bday-emp="${b.emp.id}">
+          <div class="bday-date"><b>${b.day}</b><small>${THAI_MONTHS_SHORT[b.month]}</small></div>
+          <div class="bday-info"><div class="bday-name">${esc(b.emp.name)}</div><div class="bday-sub">${esc(b.emp.position||'')}</div></div>
+          ${b.isToday ? '<span class="bday-tag">วันนี้ 🎂</span>' : `<span class="muted" style="font-size:12px; white-space:nowrap;">ครบ ${b.turning} ปี</span>`}
+        </div>`).join('')}</div>` : '<div class="empty-note">ไม่มีพนักงานเกิดเดือนนี้</div>'}
     </div>
     <div class="panel">
       <h2>รายการลาล่าสุด</h2>
       ${recentLeaves.length? recentLeaves.map(l=>`
-        <div class="row-clickable" data-recent-leave="${l.id}" style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
-          <span>${esc(l.employeeName)}</span>${leaveTypeTag(l.leaveType)}
-        </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ยังไม่มีรายการลา</div>'}
+        <div class="list-row row-clickable" data-recent-leave="${l.id}"><span class="who">${avatarHtml(employeeById(l.employeeId),26)}<span>${esc(l.employeeName)}</span></span>${leaveTypeTag(l.leaveType)}</div>`).join('') : '<div class="empty-note">ยังไม่มีรายการลา</div>'}
     </div>
   </div>
 
@@ -277,30 +307,30 @@ function viewDashboard(){
     <div class="panel">
       <h2>พนักงานลาวันนี้ (${onLeaveToday.length})</h2>
       ${onLeaveToday.length? onLeaveToday.map(l=>`
-        <div class="row-clickable" data-recent-leave="${l.id}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
-          <span style="display:flex; align-items:center; gap:8px;">${avatarHtml(employeeById(l.employeeId),22)} ${esc(l.employeeName)}</span>${leaveTypeTag(l.leaveType)}
-        </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ไม่มีใครลาวันนี้</div>'}
+        <div class="list-row row-clickable" data-recent-leave="${l.id}"><span class="who">${avatarHtml(employeeById(l.employeeId),26)}<span>${esc(l.employeeName)}</span></span>${leaveTypeTag(l.leaveType)}</div>`).join('') : '<div class="empty-note">ไม่มีใครลาวันนี้</div>'}
     </div>
     <div class="panel">
       <h2>วันลาใกล้หมด/เกินสิทธิ์</h2>
       ${balanceWarnings.length? balanceWarnings.slice(0,8).map(b=>`
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
-          <span style="display:flex; align-items:center; gap:8px;">${avatarHtml(b.emp,22)} ${esc(b.emp.name)} <span class="muted">(${esc(b.label)})</span></span>
+        <div class="list-row"><span class="who">${avatarHtml(b.emp,26)}<span>${esc(b.emp.name)} <span class="muted">· ${esc(b.label)}</span></span></span>
           <span class="tag ${b.remaining<0?'tag-red':'tag-amber'}">${b.remaining<0? 'เกิน '+Math.abs(b.remaining)+' วัน' : 'เหลือ '+b.remaining+' วัน'}</span>
-        </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ไม่มีใครใกล้หมดสิทธิ์วันลา</div>'}
+        </div>`).join('') : '<div class="empty-note">ไม่มีใครใกล้หมดสิทธิ์วันลา</div>'}
     </div>
     <div class="panel">
       <h2>บรรจุใหม่ / ทดลองงาน (≤${PROBATION_DAYS} วัน)</h2>
       ${probationEmps.length? probationEmps.map(e=>`
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
-          <span style="display:flex; align-items:center; gap:8px;">${avatarHtml(e,22)} ${esc(e.name)}</span><span class="muted">${buddhistDate(e.hireDate)}</span>
-        </div>`).join('') : '<div class="muted" style="font-size:13.5px;">ไม่มีพนักงานอยู่ระหว่างทดลองงาน</div>'}
+        <div class="list-row"><span class="who">${avatarHtml(e,26)}<span>${esc(e.name)}</span></span><span class="muted">${buddhistDate(e.hireDate)}</span>
+        </div>`).join('') : '<div class="empty-note">ไม่มีพนักงานอยู่ระหว่างทดลองงาน</div>'}
     </div>
   </div>
   `;
 }
 
 function renderDashboardCharts(){
+  if(typeof Chart==='undefined') return; // CDN unavailable — keep the rest of the dashboard working
+  applyChartTheme();
+  const cp = chartPalette();
+  const gridOpt = { grid:{ color:cp.line, drawTicks:false }, border:{ display:false }, ticks:{ padding:8 } };
   const fy = fiscalYearRange();
   const leavesFY = state.leaves.filter(l=>l.startDate && inRange(l.startDate, fy.start, fy.end) && isApproved(l));
   const leaveByType = {'ป':0,'พ':0,'ก':0};
@@ -311,8 +341,8 @@ function renderDashboardCharts(){
     if(charts.leaveType) charts.leaveType.destroy();
     charts.leaveType = new Chart(c1, {
       type:'bar',
-      data:{ labels:['ลาป่วย','ลาพักผ่อน','ลากิจ'], datasets:[{ label:'วันลา', data:[leaveByType['ป'],leaveByType['พ'],leaveByType['ก']], backgroundColor:['#16303C','#B08A3E','#3F6B4E'], borderRadius:3, maxBarThickness:46 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, ticks:{precision:0}} } }
+      data:{ labels:['ลาป่วย','ลาพักผ่อน','ลากิจ'], datasets:[{ label:'วันลา', data:[leaveByType['ป'],leaveByType['พ'],leaveByType['ก']], backgroundColor:[cp.rose, cp.accent, cp.marigold], borderRadius:8, borderSkipped:false, maxBarThickness:52 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ grid:{display:false}, border:{display:false} }, y:{...gridOpt, beginAtZero:true, ticks:{precision:0, padding:8}} } }
     });
   }
   const byDept = {};
@@ -322,8 +352,8 @@ function renderDashboardCharts(){
     if(charts.dept) charts.dept.destroy();
     charts.dept = new Chart(c2, {
       type:'bar',
-      data:{ labels:Object.keys(byDept), datasets:[{ label:'จำนวนพนักงาน', data:Object.values(byDept), backgroundColor:'#1F4152', borderRadius:3, maxBarThickness:46 }] },
-      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{beginAtZero:true, ticks:{precision:0}} } }
+      data:{ labels:Object.keys(byDept), datasets:[{ label:'จำนวนพนักงาน', data:Object.values(byDept), backgroundColor:cp.accent, borderRadius:8, borderSkipped:false, maxBarThickness:30 }] },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ grid:{display:false}, border:{display:false} }, x:{...gridOpt, beginAtZero:true, ticks:{precision:0, padding:8}} } }
     });
   }
 
@@ -333,8 +363,8 @@ function renderDashboardCharts(){
     if(charts.leaveTrend) charts.leaveTrend.destroy();
     charts.leaveTrend = new Chart(c3, {
       type:'line',
-      data:{ labels:trend.map(b=>THAI_MONTHS_SHORT[b.m]), datasets:[{ label:'วันลา', data:trend.map(b=>b.total), borderColor:'#6C5CE7', backgroundColor:'rgba(108,92,231,0.12)', fill:true, tension:.35, pointRadius:3 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, ticks:{precision:0}} } }
+      data:{ labels:trend.map(b=>THAI_MONTHS_SHORT[b.m]), datasets:[{ label:'วันลา', data:trend.map(b=>b.total), borderColor:cp.accent, backgroundColor:(ctx)=>{ const {chart}=ctx; const a=chart.chartArea; if(!a) return cp.accentSoft; const g=chart.ctx.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0, cp.accent+'55'); g.addColorStop(1, cp.accent+'00'); return g; }, fill:true, tension:.4, pointRadius:0, pointHoverRadius:5, pointBackgroundColor:cp.accent, borderWidth:2.5 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ grid:{display:false}, border:{display:false} }, y:{...gridOpt, beginAtZero:true, ticks:{precision:0, padding:8}} } }
     });
   }
 
@@ -347,8 +377,8 @@ function renderDashboardCharts(){
     if(charts.welfareCat) charts.welfareCat.destroy();
     charts.welfareCat = new Chart(c4, {
       type:'bar',
-      data:{ labels:Object.keys(welfareByCat), datasets:[{ label:'บาท', data:Object.values(welfareByCat), backgroundColor:'#B08A3E', borderRadius:3, maxBarThickness:36 }] },
-      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{beginAtZero:true, ticks:{precision:0}} } }
+      data:{ labels:Object.keys(welfareByCat), datasets:[{ label:'บาท', data:Object.values(welfareByCat), backgroundColor:cp.marigold, borderRadius:8, borderSkipped:false, maxBarThickness:26 }] },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ grid:{display:false}, border:{display:false} }, x:{...gridOpt, beginAtZero:true, ticks:{precision:0, padding:8}} } }
     });
   }
 }
