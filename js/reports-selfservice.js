@@ -157,25 +157,67 @@ function leaveBalanceCardsHtml(s){
     </div>`;}).join('')}</div>`;
 }
 
+/* passport-style photo for reports (falls back to an initial) */
+function reportPhotoHtml(e){
+  const initial = e && e.name ? e.name.replace(/^(นาย|นางสาว|นาง|ว่าที่ร้อยตรีหญิง|ว่าที่ร้อยตรี|ดร\.)/,'').trim().slice(0,1) : '?';
+  return e && e.photoUrl
+    ? `<img class="rp-photo" src="${esc(e.photoUrl)}" alt="">`
+    : `<div class="rp-photo rp-initial">${esc(initial)}</div>`;
+}
+const THAI_WEEKDAY_SHORT = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+function leaveDayLabel(dstr){
+  const d = localDate(dstr);
+  if(!d) return '-';
+  return `${THAI_WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${String(d.getFullYear()+543).slice(-2)}`;
+}
+/* every leave in the fiscal year, oldest first, so the dates are easy to scan */
+function leaveDetailRowsHtml(s){
+  const rows = state.leaves
+    .filter(l=>l.employeeId===s.emp.id && l.startDate && inRange(l.startDate, s.fy.start, s.fy.end))
+    .sort((a,b)=> String(a.startDate).localeCompare(String(b.startDate)));
+  if(!rows.length) return `<div class="leave-detail-empty">ไม่มีรายการลาในปีงบประมาณ ${s.fy.be}</div>`;
+  const tone = {'ป':'tag-red','พ':'tag-navy','ก':'tag-amber'};
+  const totals = {'ป':0,'พ':0,'ก':0};
+  rows.forEach(l=>{ if(isApproved(l) && totals[l.leaveType]!==undefined) totals[l.leaveType]+=safeNum(l.days); });
+  return `
+  <table class="reg leave-detail">
+    <thead><tr><th class="rownum">#</th><th>ประเภท</th><th>วันที่ลา</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>สถานะ</th></tr></thead>
+    <tbody>${rows.map((l,i)=>{
+      const single = !l.endDate || l.endDate===l.startDate;
+      const st = l.approvalStatus||'approved';
+      return `<tr class="${st!=='approved'?'is-uncounted':''}">
+        <td class="rownum">${i+1}</td>
+        <td><span class="tag ${tone[l.leaveType]||'tag-navy'}">${esc(LEAVE_TYPES[l.leaveType]||l.leaveType||'-')}</span></td>
+        <td class="ld-date">${single ? leaveDayLabel(l.startDate) : `${leaveDayLabel(l.startDate)} <span class="ld-arrow">ถึง</span> ${leaveDayLabel(l.endDate)}`}</td>
+        <td class="num">${safeNum(l.days)}</td>
+        <td class="ld-reason">${esc(l.reason||'-')}</td>
+        <td>${approvalTag(l)}</td>
+      </tr>`;}).join('')}</tbody>
+    <tfoot><tr><td></td><td colspan="5" class="ld-total">รวมที่อนุมัติแล้ว: ลาป่วย <b>${totals['ป']}</b> วัน · ลาพักผ่อน <b>${totals['พ']}</b> วัน · ลากิจ <b>${totals['ก']}</b> วัน</td></tr></tfoot>
+  </table>
+  <div class="ld-note">นับเฉพาะรายการที่อนุมัติแล้ว รายการที่รออนุมัติหรือไม่อนุมัติแสดงไว้เพื่ออ้างอิง</div>`;
+}
+
 function individualReportHtml(s, forPrint, skipHeader){
   const e = s.emp;
+  const metaHtml = `
+    <div><span class="k">รหัสพนักงาน</span><span>${esc(e.code)||'-'}</span></div>
+    <div><span class="k">วันเข้าทำงาน</span><span>${buddhistDate(e.hireDate)}</span></div>
+    <div><span class="k">กลุ่มงาน</span><span>${esc(e.department)||'-'}</span></div>
+    <div><span class="k">อายุงานปัจจุบัน</span><span>${ageFromDate(e.hireDate)}</span></div>
+    <div><span class="k">วันเกิด</span><span>${buddhistDate(e.birthDate)}</span></div>
+    <div><span class="k">วันเกษียณอายุ</span><span>${buddhistDate(e.retireDate)}</span></div>`;
   return `
-  ${skipHeader ? '' : `
-  <div class="doc-header">
-    ${state.settings.logoUrl? `<img src="${esc(state.settings.logoUrl)}" style="height:44px; object-fit:contain; margin-bottom:8px;">` : ''}
-    <div class="org">รายงานสรุปข้อมูลบุคลากรรายบุคคล</div>
-    <div class="title" style="display:flex; align-items:center; justify-content:center; gap:10px;">${avatarHtml(e,36)}${esc(e.name)}</div>
+  ${skipHeader ? `<div class="doc-meta rp-meta">${metaHtml}</div>` : `
+  <div class="report-profile">
+    ${reportPhotoHtml(e)}
+    <div class="rp-body">
+      <div class="rp-kicker">รายงานสรุปข้อมูลบุคลากรรายบุคคล</div>
+      <div class="rp-name">${esc(e.name)}</div>
+      <div class="rp-pos">${esc(e.position||'')}</div>
+      <div class="rp-meta">${metaHtml}</div>
+    </div>
   </div>`}
-  <div class="doc-meta">
-    <div><span class="k">รหัสพนักงาน: </span>${esc(e.code)}</div>
-    <div><span class="k">วันเข้าทำงาน: </span>${buddhistDate(e.hireDate)}</div>
-    <div><span class="k">ตำแหน่ง: </span>${esc(e.position)}</div>
-    <div><span class="k">อายุงานปัจจุบัน: </span>${ageFromDate(e.hireDate)}</div>
-    <div><span class="k">กลุ่มงาน: </span>${esc(e.department)}</div>
-    <div><span class="k">วันเกิด: </span>${buddhistDate(e.birthDate)}</div>
-    <div></div>
-    <div><span class="k">วันเกษียณอายุ: </span>${buddhistDate(e.retireDate)}</div>
-  </div>
 
   <div class="doc-section-title">สรุปวันลา ปีงบประมาณ ${s.fy.be}</div>
   ${forPrint ? '' : leaveBalanceCardsHtml(s)}
@@ -183,13 +225,20 @@ function individualReportHtml(s, forPrint, skipHeader){
   <tbody>${s.leaveSummary.map(r=>`<tr><td>${r.label}${r.auto?' <span class="tag tag-navy" title="คำนวณอัตโนมัติจากยอดคงเหลือปีที่แล้ว">ยกยอดอัตโนมัติ</span>':''}</td><td class="num">${r.right}</td><td class="num">${r.carry}</td><td class="num">${r.total}</td><td class="num">${r.used}</td><td class="num"><b>${r.remaining}</b></td></tr>`).join('')}</tbody></table>
   ${(()=>{ const v=s.leaveSummary.find(r=>r.key==='พ'); return v && v.auto ? `<div class="carry-note">↳ ลาพักผ่อนสะสมยกมา ${v.carry} วัน — ${esc(v.note)}</div>` : ''; })()}
 
+  <div class="doc-section-title">รายละเอียดวันลา ปีงบประมาณ ${s.fy.be}</div>
+  ${leaveDetailRowsHtml(s)}
+
+<div class="pdf-noBreak">
   <div class="doc-section-title">สรุปเงินกู้</div>
   <table class="reg"><thead><tr><th>หมวดเงินกู้</th><th class="num">วงเงินสิทธิ์สูงสุด</th><th class="num">ยอดคงค้างปัจจุบัน</th></tr></thead>
   <tbody>${s.loanSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${money(r.limit)}</td><td class="num">${money(r.current)}</td></tr>`).join('')}</tbody></table>
+  </div>
+  <div class="pdf-noBreak">
 
   <div class="doc-section-title">สรุปสวัสดิการและประกันสังคม (ปีงบประมาณนี้)</div>
   <table class="reg"><thead><tr><th>รายการ</th><th class="num">วงเงินสิทธิ์</th><th class="num">เบิกใช้ไปแล้ว</th><th class="num">คงเหลือ</th></tr></thead>
   <tbody>${s.welfareSummary.map(r=>`<tr><td>${r.label}</td><td class="num">${money(r.limit)}</td><td class="num">${money(r.used)}</td><td class="num">${money(r.remaining)}</td></tr>`).join('')}</tbody></table>
+  </div>
 
   `;
 }
@@ -350,8 +399,29 @@ table.reg th.rownum, table.reg td.rownum{color:var(--ink-faint); width:30px; tex
 .doc-meta{display:grid; grid-template-columns:1fr 1fr; gap:3px 28px; font-size:14px; margin-bottom:12px;
   padding:10px 14px; border:1px solid var(--rule-soft); border-radius:6px;}
 .doc-meta div span.k{color:var(--ink-soft);}
-.doc-section-title{font-size:15px; font-weight:700; color:var(--ink); margin:18px 0 6px; padding-left:9px; border-left:3px solid var(--accent); line-height:1.3;}
+.doc-section-title{break-after:avoid; page-break-after:avoid; font-size:15px; font-weight:700; color:var(--ink); margin:18px 0 6px; padding-left:9px; border-left:3px solid var(--accent); line-height:1.3;}
 .avatar-thumb{display:none !important;}
+.report-profile{ display:flex; gap:18px; align-items:stretch; padding:14px 16px; border:1px solid var(--rule); border-radius:8px; margin:0 0 6px; page-break-inside:avoid; }
+.rp-photo{ width:96px; height:120px; border-radius:6px; object-fit:cover; flex-shrink:0; border:1px solid var(--rule); background:var(--tint); }
+.rp-initial{ display:flex; align-items:center; justify-content:center; font-size:40px; font-weight:700; color:var(--accent); background:var(--accent-soft); }
+.rp-body{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.rp-kicker{ font-size:12.5px; color:var(--ink-soft); }
+.rp-name{ font-size:22px; font-weight:700; line-height:1.3; }
+.rp-pos{ font-size:14.5px; color:var(--ink-soft); margin-bottom:8px; }
+.rp-meta{ display:grid; grid-template-columns:1fr 1fr; gap:2px 24px; font-size:13.5px; margin-top:auto; padding-top:8px; border-top:1px dashed var(--rule-soft); }
+.rp-meta > div{ display:flex; gap:8px; }
+.rp-meta .k{ color:var(--ink-soft); min-width:7.2em; }
+.doc-meta.rp-meta{ border-top:none; padding:10px 14px; border:1px solid var(--rule-soft); }
+table.leave-detail td{ padding:5px 10px; }
+.ld-date{ white-space:nowrap; font-variant-numeric:tabular-nums; }
+.ld-arrow{ color:var(--ink-faint); padding:0 3px; font-size:12px; }
+.ld-reason{ color:var(--ink-soft); }
+tr.is-uncounted td{ color:var(--ink-faint); }
+tr.is-uncounted .tag{ opacity:.7; }
+.ld-total{ font-size:13px; color:var(--ink-soft); padding-top:7px !important; }
+.ld-total b{ color:var(--ink); }
+.ld-note, .leave-detail-empty{ font-size:12px; color:var(--ink-faint); margin-top:2px; }
+.leave-detail-empty{ font-size:13.5px; padding:8px 0; }
 
 /* ---------- official leave form (แบบฟอร์มราชการ) ---------- */
 .lf{ font-size:15px; line-height:1.95; color:var(--ink); }
