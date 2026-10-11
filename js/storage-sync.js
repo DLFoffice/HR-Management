@@ -94,6 +94,9 @@ function updateSyncStatus(kind){
   else if(kind==='syncing'){ dot.className='sync-dot sync-none'; text.textContent='กำลังซิงค์...'; }
   else if(kind==='ok'){ dot.className='sync-dot sync-ok'; text.textContent='เชื่อมต่อแล้ว · ' + (state.lastSync? fmtDateTime(state.lastSync):''); }
   else if(kind==='bad'){ dot.className='sync-dot sync-bad'; text.textContent='เชื่อมต่อล้มเหลว (คลิกเพื่อลองใหม่)'; }
+  const btn = document.getElementById('sidebarFoot');
+  if(btn) btn.title = 'Google Sheet: ' + text.textContent + ' — คลิกเพื่อซิงค์';
+  if(btn) btn.classList.toggle('spinning', kind==='syncing');
 }
 
 /* generic CRUD against a category */

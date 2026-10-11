@@ -1,23 +1,24 @@
 /* ===== nav-dashboard.js ===== */
+/* label = full name (topbar, search); short = rail caption under the icon */
 const NAV_ADMIN = [
-  {id:'dashboard', label:'ภาพรวม'},
-  {id:'employees', label:'ข้อมูลพนักงาน'},
-  {id:'orgchart', label:'โครงสร้างองค์กร'},
-  {id:'leaves', label:'บันทึกวันลา'},
-  {id:'loans', label:'บันทึกเงินกู้'},
-  {id:'welfare', label:'สวัสดิการ/ประกันสังคม'},
-  {id:'kpi', label:'ประเมินผล KPI'},
-  {id:'training', label:'ฝึกอบรม/พัฒนาบุคลากร'},
-  {id:'reports', label:'รายงาน / PDF'},
-  {id:'settings', label:'ตั้งค่าเชื่อมต่อ'}
+  {id:'dashboard', label:'ภาพรวม', short:'หน้าแรก'},
+  {id:'employees', label:'ข้อมูลพนักงาน', short:'พนักงาน'},
+  {id:'orgchart', label:'โครงสร้างองค์กร', short:'โครงสร้าง'},
+  {id:'leaves', label:'บันทึกวันลา', short:'วันลา'},
+  {id:'loans', label:'บันทึกเงินกู้', short:'เงินกู้'},
+  {id:'welfare', label:'สวัสดิการ/ประกันสังคม', short:'สวัสดิการ'},
+  {id:'kpi', label:'ประเมินผล KPI', short:'KPI'},
+  {id:'training', label:'ฝึกอบรม/พัฒนาบุคลากร', short:'อบรม'},
+  {id:'reports', label:'รายงาน / PDF', short:'รายงาน'},
+  {id:'settings', label:'ตั้งค่าเชื่อมต่อ', short:'ตั้งค่า', bottom:true}
 ];
 const NAV_SELF = [
-  {id:'myhome', label:'ข้อมูลของฉัน'},
-  {id:'myleaves', label:'วันลาของฉัน'},
-  {id:'myloans', label:'เงินกู้ของฉัน'},
-  {id:'mywelfare', label:'สวัสดิการของฉัน'},
-  {id:'mykpi', label:'ผลประเมิน KPI'},
-  {id:'mytraining', label:'ประวัติการอบรม'}
+  {id:'myhome', label:'ข้อมูลของฉัน', short:'หน้าแรก'},
+  {id:'myleaves', label:'วันลาของฉัน', short:'วันลา'},
+  {id:'myloans', label:'เงินกู้ของฉัน', short:'เงินกู้'},
+  {id:'mywelfare', label:'สวัสดิการของฉัน', short:'สวัสดิการ'},
+  {id:'mykpi', label:'ผลประเมิน KPI', short:'KPI'},
+  {id:'mytraining', label:'ประวัติการอบรม', short:'อบรม'}
 ];
 function currentNav(){ return isAdminUser() ? NAV_ADMIN : NAV_SELF; }
 
@@ -35,8 +36,8 @@ function renderNav(){
   const list = currentNav();
   nav.innerHTML = '<div class="nav-indicator"></div>' + list.map(n=>{
     const c = navPendingCount(n.id);
-    return `${n.id==='reports'?'<div class="nav-sep"></div>':''}<button data-view="${n.id}" class="${state.currentView===n.id?'active':''}" title="${esc(n.label)}">
-      ${navIconSvg(n.id)}<span>${n.label}</span>${c?`<span class="nav-count" title="รออนุมัติ">${c}</span>`:''}
+    return `<button data-view="${n.id}" class="${state.currentView===n.id?'active':''}${n.bottom?' nav-bottom':''}" title="${esc(n.label)}">
+      <span class="nav-ic">${navIconSvg(n.id)}${c?`<span class="nav-count" title="รออนุมัติ">${c}</span>`:''}</span><span class="rail-label">${esc(n.short||n.label)}</span>
     </button>`;
   }).join('');
   nav.querySelectorAll('button').forEach(b=>{
@@ -84,7 +85,7 @@ function renderView(){
   if(nav) nav.querySelectorAll('button[data-view]').forEach(b=>{
     const c = navPendingCount(b.dataset.view);
     let badge = b.querySelector('.nav-count');
-    if(c && !badge){ badge = document.createElement('span'); badge.className='nav-count'; b.appendChild(badge); }
+    if(c && !badge){ badge = document.createElement('span'); badge.className='nav-count'; (b.querySelector('.nav-ic')||b).appendChild(badge); }
     if(badge){ if(c) badge.textContent = c; else badge.remove(); }
   });
   if(viewChanged) playViewEnter(root); else window.scrollTo(0, scrollY);
@@ -156,6 +157,71 @@ function employeesOnProbation(){
   }).sort((a,b)=> new Date(b.hireDate)-new Date(a.hireDate));
 }
 
+
+/* ---------- dashboard building blocks ---------- */
+const HERO_IC = {
+  sync:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12A9 9 0 0 1 18.5 5.8"/><path d="M21 4v5h-5M3 20v-5h5"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
+};
+const PANEL_IC = {
+  bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  cake:'<path d="M4 21h16v-7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 0M12 12V8M12 4.5v.01"/>',
+  alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>'
+};
+function panelIc(id){
+  const body = PANEL_IC[id] || NAV_ICONS[id] || '';
+  return `<span class="h-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${body}</svg></span>`;
+}
+function statIc(id){ return `<div class="stat-ic">${navIconSvg(id).replace('<svg','<svg stroke="currentColor"')}</div>`; }
+function quickAppHtml(view, label, tone, then){
+  const target = isAdminUser() ? view : ({leaves:'myleaves',loans:'myloans',welfare:'mywelfare'}[view]||view);
+  return `<button type="button" class="quick-app" data-goto="${target}"${then?` data-then="${then}"`:''}>
+    <span class="qa-ic ${tone}">${navIconSvg(view).replace('<svg','<svg stroke="currentColor"')}</span><span>${label}</span></button>`;
+}
+function greetingText(){
+  const h = new Date().getHours();
+  return h < 12 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
+}
+/* Decorative illustration: leave calendar + approval check + bar chart */
+const HERO_ART = `<svg class="hero-svg" viewBox="0 0 300 170" fill="none" aria-hidden="true">
+  <ellipse cx="160" cy="160" rx="130" ry="8" fill="#000" opacity=".18"/>
+  <g class="ha-bars">
+    <rect x="196" y="78" width="22" height="78" rx="6" fill="#fff" opacity=".28"/>
+    <rect x="224" y="56" width="22" height="100" rx="6" fill="#fff" opacity=".38"/>
+    <rect x="252" y="30" width="22" height="126" rx="6" fill="url(#hb)"/>
+  </g>
+  <g class="ha-card">
+    <rect x="58" y="34" width="120" height="112" rx="16" fill="#fff"/>
+    <rect x="58" y="34" width="120" height="30" rx="16" fill="url(#hc)"/>
+    <rect x="58" y="50" width="120" height="14" fill="url(#hc)"/>
+    <circle cx="84" cy="34" r="5" fill="#0B1B47"/><circle cx="152" cy="34" r="5" fill="#0B1B47"/>
+    <g fill="#DCE6FB">${[0,1,2,3].map(r=>[0,1,2,3].map(c=>`<rect x="${72+c*24}" y="${74+r*17}" width="16" height="11" rx="3"/>`).join('')).join('')}</g>
+    <rect x="96" y="91" width="16" height="11" rx="3" fill="#3B82F6"/><rect x="120" y="91" width="16" height="11" rx="3" fill="#3B82F6"/>
+    <rect x="144" y="108" width="16" height="11" rx="3" fill="#F5B83D"/>
+  </g>
+  <g class="ha-check"><circle cx="186" cy="40" r="18" fill="#fff"/><path d="m177 40 6 6 12-12" stroke="#16A34A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="ha-coin"><circle cx="40" cy="112" r="17" fill="#F5B83D"/><circle cx="40" cy="112" r="11" fill="#FCD34D"/><path d="M36 106h6a3 3 0 0 1 0 6h-6v6h6" stroke="#B45309" stroke-width="2.2" stroke-linecap="round"/></g>
+  <defs>
+    <linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#7DD3FC"/><stop offset="1" stop-color="#22D3EE" stop-opacity=".7"/></linearGradient>
+    <linearGradient id="hc" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#2563EB"/><stop offset="1" stop-color="#38BDF8"/></linearGradient>
+  </defs>
+</svg>`;
+function heroBannerHtml(o){
+  return `<section class="hero">
+    <div class="hero-glow g1"></div><div class="hero-glow g2"></div><div class="hero-dots"></div>
+    <div class="hero-text">
+      ${o.kicker ? `<div class="hero-kicker">${o.kicker}</div>` : ''}
+      <h1>${o.title}</h1>
+      ${o.text ? `<p>${o.text}</p>` : ''}
+      ${o.actions ? `<div class="hero-actions">${o.actions}</div>` : ''}
+    </div>
+    <div class="hero-art">${o.art || HERO_ART}</div>
+  </section>`;
+}
+
 function viewDashboard(){
   const fy = fiscalYearRange();
   const totalEmp = state.employees.length;
@@ -214,32 +280,44 @@ function viewDashboard(){
   const probationEmps = employeesOnProbation();
 
   return `
-  <div class="page-header">
-    <div>
-      <h1>ภาพรวมระบบ</h1>
-      <div class="sub">ปีงบประมาณ ${fy.start.getFullYear()+543}-${fy.end.getFullYear()+543} (${buddhistDate(fy.start)} – ${buddhistDate(fy.end)})</div>
-    </div>
-    <div class="actions">
-      <button class="btn btn-primary" id="btnSyncTop">ซิงค์ข้อมูลล่าสุด</button>
-    </div>
-  </div>
+  ${heroBannerHtml({
+      kicker: 'ปีงบประมาณ ' + fiscalYearBE(),
+      title: 'สวัสดี คุณ' + esc(state.currentUser && state.currentUser.name || 'ผู้ดูแลระบบ'),
+      text: `${greetingText()} — พนักงาน ${totalEmp} คน · ลาวันนี้ ${onLeaveToday.length} คน · รออนุมัติ ${pendingTotal} รายการ`,
+      actions: `<button class="hero-btn" id="btnSyncTop">${HERO_IC.sync}ซิงค์ข้อมูลล่าสุด</button>
+                <button class="hero-btn" data-goto="leaves" data-then="newLeave">${HERO_IC.plus}บันทึกวันลา</button>
+                <button class="hero-btn ghost" data-goto="reports">${HERO_IC.doc}รายงาน / PDF</button>`
+  })}
 
   <div class="grid grid-4" style="margin-bottom:16px;">
-    <div class="stat"><div class="label">พนักงานทั้งหมด</div><div class="value" id="statEmp" data-to="${totalEmp}" data-dec="0">0</div><div class="foot">${Object.entries(byDept).map(([k,v])=>k+' '+v).join(' · ')}</div></div>
-    <div class="stat"><div class="label">วันลาสะสม (ปีงบประมาณนี้)</div><div class="value" id="statLeave" data-to="${leaveDaysTotal}" data-dec="1">0</div><div class="foot">วัน จากทั้งหมด ${leavesFY.length} รายการ</div></div>
-    <div class="stat"><div class="label">เงินกู้คงค้าง</div><div class="value" id="statLoan" data-to="${loanOutstanding}" data-dec="0">0</div><div class="foot">${activeLoans.length} สัญญาที่ยังผ่อนอยู่ ${activeLoans.length?'('+loanBreakdownText+')':''}</div></div>
-    <div class="stat"><div class="label">สวัสดิการเบิกใช้ (ปีงบนี้)</div><div class="value" id="statWelfare" data-to="${welfareUsed}" data-dec="0">0</div><div class="foot">${welfareFY.length} รายการเบิก</div></div>
+    <div class="stat tone-blue">${statIc('employees')}<div class="label">พนักงานทั้งหมด</div><div class="value" id="statEmp" data-to="${totalEmp}" data-dec="0">0</div><div class="foot">${Object.entries(byDept).map(([k,v])=>k+' '+v).join(' · ')}</div></div>
+    <div class="stat tone-sky">${statIc('leaves')}<div class="label">วันลาที่อนุมัติ (ปีงบนี้)</div><div class="value" id="statLeave" data-to="${leaveDaysTotal}" data-dec="1">0</div><div class="foot">วัน จากทั้งหมด ${leavesFY.length} รายการ</div></div>
+    <div class="stat tone-amber">${statIc('loans')}<div class="label">เงินกู้คงค้าง (บาท)</div><div class="value" id="statLoan" data-to="${loanOutstanding}" data-dec="0">0</div><div class="foot">${activeLoans.length} สัญญาที่ยังผ่อนอยู่ ${activeLoans.length?'('+loanBreakdownText+')':''}</div></div>
+    <div class="stat tone-rose">${statIc('welfare')}<div class="label">สวัสดิการเบิกใช้ (บาท)</div><div class="value" id="statWelfare" data-to="${welfareUsed}" data-dec="0">0</div><div class="foot">${welfareFY.length} รายการเบิกในปีงบนี้</div></div>
   </div>
 
-  <div class="grid grid-3" style="margin-bottom:16px;">
-    <div class="stat"><div class="label">พนักงานลาวันนี้</div><div class="value" id="statOnLeave" data-to="${onLeaveToday.length}" data-dec="0">0</div><div class="foot">${onLeaveToday.length? 'ดูรายชื่อด้านล่าง' : 'ไม่มีใครลาวันนี้'}</div></div>
-    <div class="stat"><div class="label">คะแนน KPI เฉลี่ย (ปี ${kpiYear})</div><div class="value" id="statKpi" data-to="${kpiAvg}" data-dec="1">0</div><div class="foot">ประเมินแล้ว ${kpiEvaluatedCount} จาก ${totalEmp} คน</div></div>
-    <div class="stat"><div class="label">ชั่วโมงอบรมสะสม (ปีงบนี้)</div><div class="value" id="statTraining" data-to="${trainingHours}" data-dec="1">0</div><div class="foot">${trainingFY.length} รายการ · ${trainingEmpCount} คน</div></div>
+  <div class="dash-row">
+    <div class="panel quick-panel">
+      <h2>${panelIc('bolt')}เมนูลัด</h2>
+      <div class="quick-grid">
+        ${quickAppHtml('leaves','บันทึกวันลา','g-blue','newLeave')}
+        ${quickAppHtml('employees','เพิ่มพนักงาน','g-violet','newEmp')}
+        ${quickAppHtml('loans','บันทึกเงินกู้','g-amber','newLoan')}
+        ${quickAppHtml('welfare','เบิกสวัสดิการ','g-rose','newWelfare')}
+        ${quickAppHtml('reports','รายงาน','g-teal')}
+        ${quickAppHtml('orgchart','โครงสร้าง','g-indigo')}
+      </div>
+    </div>
+    <div class="grid grid-3 mini-stats">
+      <div class="stat tone-rose">${statIc('leaves')}<div class="label">พนักงานลาวันนี้</div><div class="value" id="statOnLeave" data-to="${onLeaveToday.length}" data-dec="0">0</div><div class="foot">${onLeaveToday.length? 'ดูรายชื่อด้านล่าง' : 'ไม่มีใครลาวันนี้'}</div></div>
+      <div class="stat tone-violet">${statIc('kpi')}<div class="label">KPI เฉลี่ย (ปี ${kpiYear})</div><div class="value" id="statKpi" data-to="${kpiAvg}" data-dec="1">0</div><div class="foot">ประเมินแล้ว ${kpiEvaluatedCount} จาก ${totalEmp} คน</div></div>
+      <div class="stat tone-teal">${statIc('training')}<div class="label">ชั่วโมงอบรม (ปีงบนี้)</div><div class="value" id="statTraining" data-to="${trainingHours}" data-dec="1">0</div><div class="foot">${trainingFY.length} รายการ · ${trainingEmpCount} คน</div></div>
+    </div>
   </div>
 
   ${pendingTotal>0 ? `
   <div class="panel pending-panel">
-    <h2>รายการรออนุมัติ <span class="h-count">${pendingTotal} รายการ</span></h2>
+    <h2>${panelIc('bell')}รายการรออนุมัติ <span class="h-count">${pendingTotal} รายการ</span></h2>
     <div class="table-wrap"><table class="reg">
       <thead><tr><th>ประเภท</th><th>พนักงาน</th><th>รายละเอียด</th><th class="num">วันที่ยื่น</th><th>จัดการ</th></tr></thead>
       <tbody>
@@ -253,13 +331,13 @@ function viewDashboard(){
 
   <div class="grid grid-2" style="align-items:start;">
     <div class="panel">
-      <h2>วันลาแยกตามประเภท (ปีงบประมาณนี้)</h2>
+      <h2>${panelIc('leaves')}วันลาแยกตามประเภท (ปีงบประมาณนี้)</h2>
       <div style="position:relative; height:220px;">
         <canvas id="chartLeaveType" role="img" aria-label="กราฟแท่งแสดงจำนวนวันลาแยกตามประเภท">ลาป่วย ${leaveByType['ป']} วัน, ลาพักผ่อน ${leaveByType['พ']} วัน, ลากิจ ${leaveByType['ก']} วัน</canvas>
       </div>
     </div>
     <div class="panel">
-      <h2>พนักงานแยกตามกลุ่มงาน</h2>
+      <h2>${panelIc('employees')}พนักงานแยกตามกลุ่มงาน</h2>
       <div style="position:relative; height:220px;">
         <canvas id="chartDept" role="img" aria-label="กราฟแท่งแสดงจำนวนพนักงานแยกตามกลุ่มงาน">${Object.entries(byDept).map(([k,v])=>k+' '+v+' คน').join(', ')}</canvas>
       </div>
@@ -268,13 +346,13 @@ function viewDashboard(){
 
   <div class="grid grid-2" style="align-items:start;">
     <div class="panel">
-      <h2>แนวโน้มวันลารายเดือน (ปีงบประมาณนี้)</h2>
+      <h2>${panelIc('kpi')}แนวโน้มวันลารายเดือน (ปีงบประมาณนี้)</h2>
       <div style="position:relative; height:220px;">
         <canvas id="chartLeaveTrend" role="img" aria-label="กราฟเส้นแสดงแนวโน้มวันลารายเดือน">${leaveTrend.map(b=>THAI_MONTHS_SHORT[b.m]+' '+b.total+' วัน').join(', ')}</canvas>
       </div>
     </div>
     <div class="panel">
-      <h2>สวัสดิการแยกตามหมวด (ปีงบนี้)</h2>
+      <h2>${panelIc('welfare')}สวัสดิการแยกตามหมวด (ปีงบนี้)</h2>
       <div style="position:relative; height:220px;">
         <canvas id="chartWelfareCat" role="img" aria-label="กราฟแท่งแสดงยอดเบิกสวัสดิการแยกตามหมวด">${Object.entries(welfareByCat).map(([k,v])=>k+' '+money(v)+' บาท').join(', ')}</canvas>
       </div>
@@ -283,12 +361,12 @@ function viewDashboard(){
 
   <div class="grid grid-3" style="align-items:start;">
     <div class="panel">
-      <h2>ใกล้เกษียณอายุ (12 เดือนข้างหน้า)</h2>
+      <h2>${panelIc('clock')}ใกล้เกษียณอายุ (12 เดือนข้างหน้า)</h2>
       ${upcomingRetire.length? upcomingRetire.map(e=>`
         <div class="list-row"><span class="who">${avatarHtml(e,26)}<span>${esc(e.name)}</span></span><span class="muted">${buddhistDate(e.retireDate)}</span></div>`).join('') : '<div class="empty-note">ไม่มีพนักงานใกล้เกษียณ</div>'}
     </div>
     <div class="panel">
-      <h2>วันเกิดเดือน${THAI_MONTHS_FULL[thisMonth]} <span class="h-count">${birthdays.length} คน</span></h2>
+      <h2>${panelIc('cake')}วันเกิดเดือน${THAI_MONTHS_FULL[thisMonth]} <span class="h-count">${birthdays.length} คน</span></h2>
       ${birthdays.length? `<div class="bday-list">${birthdays.map(b=>`
         <div class="bday-row row-clickable ${b.isToday?'is-today':''} ${b.isPast&&!b.isToday?'is-past':''}" data-bday-emp="${b.emp.id}">
           <div class="bday-date"><b>${b.day}</b><small>${THAI_MONTHS_SHORT[b.month]}</small></div>
@@ -297,7 +375,7 @@ function viewDashboard(){
         </div>`).join('')}</div>` : '<div class="empty-note">ไม่มีพนักงานเกิดเดือนนี้</div>'}
     </div>
     <div class="panel">
-      <h2>รายการลาล่าสุด</h2>
+      <h2>${panelIc('leaves')}รายการลาล่าสุด</h2>
       ${recentLeaves.length? recentLeaves.map(l=>`
         <div class="list-row row-clickable" data-recent-leave="${l.id}"><span class="who">${avatarHtml(employeeById(l.employeeId),26)}<span>${esc(l.employeeName)}</span></span>${leaveTypeTag(l.leaveType)}</div>`).join('') : '<div class="empty-note">ยังไม่มีรายการลา</div>'}
     </div>
@@ -305,19 +383,19 @@ function viewDashboard(){
 
   <div class="grid grid-3" style="align-items:start;">
     <div class="panel">
-      <h2>พนักงานลาวันนี้ (${onLeaveToday.length})</h2>
+      <h2>${panelIc('employees')}พนักงานลาวันนี้ (${onLeaveToday.length})</h2>
       ${onLeaveToday.length? onLeaveToday.map(l=>`
         <div class="list-row row-clickable" data-recent-leave="${l.id}"><span class="who">${avatarHtml(employeeById(l.employeeId),26)}<span>${esc(l.employeeName)}</span></span>${leaveTypeTag(l.leaveType)}</div>`).join('') : '<div class="empty-note">ไม่มีใครลาวันนี้</div>'}
     </div>
     <div class="panel">
-      <h2>วันลาใกล้หมด/เกินสิทธิ์</h2>
+      <h2>${panelIc('alert')}วันลาใกล้หมด/เกินสิทธิ์</h2>
       ${balanceWarnings.length? balanceWarnings.slice(0,8).map(b=>`
         <div class="list-row"><span class="who">${avatarHtml(b.emp,26)}<span>${esc(b.emp.name)} <span class="muted">· ${esc(b.label)}</span></span></span>
           <span class="tag ${b.remaining<0?'tag-red':'tag-amber'}">${b.remaining<0? 'เกิน '+Math.abs(b.remaining)+' วัน' : 'เหลือ '+b.remaining+' วัน'}</span>
         </div>`).join('') : '<div class="empty-note">ไม่มีใครใกล้หมดสิทธิ์วันลา</div>'}
     </div>
     <div class="panel">
-      <h2>บรรจุใหม่ / ทดลองงาน (≤${PROBATION_DAYS} วัน)</h2>
+      <h2>${panelIc('employees')}บรรจุใหม่ / ทดลองงาน (≤${PROBATION_DAYS} วัน)</h2>
       ${probationEmps.length? probationEmps.map(e=>`
         <div class="list-row"><span class="who">${avatarHtml(e,26)}<span>${esc(e.name)}</span></span><span class="muted">${buddhistDate(e.hireDate)}</span>
         </div>`).join('') : '<div class="empty-note">ไม่มีพนักงานอยู่ระหว่างทดลองงาน</div>'}

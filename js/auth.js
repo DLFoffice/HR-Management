@@ -96,18 +96,32 @@ function afterLogin(){
 }
 
 function renderUserBadge(){
-  const box = document.getElementById('adminBadge');
-  if(!box || !state.currentUser) return;
+  if(!state.currentUser) return;
   const roleLabel = isAdminUser() ? 'ผู้ดูแลระบบ' : 'พนักงาน';
   const emp = isSelfUser() ? currentEmployee() : null;
   const name = state.currentUser.name || roleLabel;
-  const avatar = emp ? avatarHtml(emp, 32) : esc(String(name).replace(/^(นาย|นางสาว|นาง)/,'').trim().slice(0,1) || 'A');
-  box.innerHTML = `<div class="admin-badge on">
-    <span class="avatar-dot">${avatar}</span>
-    <span class="lbl"><span>${esc(name)}</span><small>${roleLabel}</small></span>
-    <button id="btnLogoutUser" title="ออกจากระบบ">ออก</button>
-  </div>`;
-  document.getElementById('btnLogoutUser').addEventListener('click', logout);
+  const initial = esc(String(name).replace(/^(นาย|นางสาว|นาง)/,'').trim().slice(0,1) || 'A');
+  const av = (size)=> emp && emp.photoUrl
+    ? `<img class="ua-img" src="${esc(emp.photoUrl)}" alt="" style="width:${size}px;height:${size}px;">`
+    : `<span class="ua-init" style="width:${size}px;height:${size}px;">${initial}</span>`;
+
+  const rail = document.getElementById('adminBadge');
+  if(rail) rail.innerHTML = `<button type="button" class="rail-avatar" title="${esc(name)}" data-open-user>${av(40)}</button>`;
+
+  const chip = document.getElementById('userChip');
+  if(chip) chip.innerHTML = `${av(36)}<span class="uc-text"><b>${esc(name)}</b><small>${roleLabel}</small></span>
+    <svg class="uc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>`;
+
+  const pop = document.getElementById('userPop');
+  if(pop) pop.innerHTML = `
+    <div class="up-head">${av(44)}<div><b>${esc(name)}</b><small>${emp ? esc(emp.position||'') : roleLabel}</small></div></div>
+    ${emp ? `<button type="button" class="pop-item" data-goto="myhome">ข้อมูลของฉัน</button>` : ''}
+    <button type="button" class="pop-item" data-pop-sync>ซิงค์ข้อมูลจาก Google Sheet</button>
+    <button type="button" class="pop-item" data-theme-toggle>สลับโหมดสว่าง / มืด</button>
+    ${isAdminUser() ? `<button type="button" class="pop-item" data-goto="settings">ตั้งค่าระบบ</button>` : ''}
+    <div class="pop-sep"></div>
+    <button type="button" class="pop-item danger" id="btnLogoutUser">ออกจากระบบ</button>`;
+  document.getElementById('btnLogoutUser')?.addEventListener('click', logout);
 }
 
 let charts = {};

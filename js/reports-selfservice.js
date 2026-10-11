@@ -368,8 +368,8 @@ function overallReportHtml(rows, fy, forPrint){
 const PRINT_DOC_CSS = `
 :root{
   --ink:#1A1F1D; --ink-soft:#4E5753; --ink-faint:#8A938F;
-  --rule:#C9CFCC; --rule-soft:#E2E6E4; --tint:#F3F6F5;
-  --accent:#17735F; --accent-soft:#E6F2EE;
+  --rule:#C9D1E0; --rule-soft:#E3E8F2; --tint:#F3F6FC;
+  --accent:#1D4ED8; --accent-soft:#EAF1FF;
   --green:#1F8A5B; --green-bg:#E2F4EA; --red:#C9424F; --red-bg:#FBE6E8;
   --amber:#B97A12; --amber-bg:#FBF0D9;
   /* legacy names used by report markup */
@@ -544,7 +544,7 @@ function printDocument(html, opts){
 <style>
   @page { size: A4; margin: ${formal ? '14mm 18mm 12mm 22mm' : '12mm 14mm 14mm'}; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  html, body { margin:0; padding:0; background:#DADFDD; font-family:'Sarabun','TH Sarabun New','TH SarabunPSK',sans-serif; color:#1A1F1D; }
+  html, body { margin:0; padding:0; background:#DCE2EE; font-family:'Sarabun','TH Sarabun New','TH SarabunPSK',sans-serif; color:#1A1F1D; }
   table.pdf-print-table { width:100%; border-collapse:collapse; background:#fff; }
   table.pdf-print-table > thead { display: table-header-group; }
   table.pdf-print-table > thead > tr > td, table.pdf-print-table > tbody > tr > td { padding:0; }
@@ -556,11 +556,11 @@ function printDocument(html, opts){
   .pph-title { font-size:18px; font-weight:700; line-height:1.3; }
   .pph-sub { font-size:13px; color:#4E5753; line-height:1.4; }
   .pph-date { font-size:12px; color:#8A938F; white-space:nowrap; align-self:flex-end; }
-  .pdf-print-toolbar { position:sticky; top:0; z-index:10; background:#14201C; color:#fff; padding:10px 18px;
+  .pdf-print-toolbar { position:sticky; top:0; z-index:10; background:#0F1A33; color:#fff; padding:10px 18px;
     display:flex; align-items:center; justify-content:space-between; font-size:14px; gap:12px; }
   .pdf-print-toolbar button { font-family:inherit; font-size:14px; font-weight:600; padding:8px 18px;
-    border:none; border-radius:8px; background:#17735F; color:#fff; cursor:pointer; }
-  .pdf-print-toolbar button:hover { background:#1F8A72; }
+    border:none; border-radius:8px; background:linear-gradient(135deg,#1E3A8A,#2563EB 60%,#38BDF8 130%); color:#fff; cursor:pointer; }
+  .pdf-print-toolbar button:hover { filter:brightness(1.1); }
   .pdf-print-toolbar span { opacity:.8; }
   .sheet-pad { padding:${formal ? '0' : '0'}; }
   @media print {
@@ -794,34 +794,18 @@ function viewMyHome(){
   const emp = currentEmployee();
   if(!emp) return `<div class="panel">ไม่พบข้อมูลพนักงานของคุณ กรุณาติดต่อผู้ดูแลระบบ</div>`;
   const summary = computeEmployeeSummary(emp.id);
+  const vac = summary.leaveSummary.find(r=>r.key==='พ');
+  const pending = state.leaves.filter(l=>l.employeeId===emp.id && (l.approvalStatus||'approved')==='pending').length;
   return `
-  <div class="page-header">
-    <div><h1>ข้อมูลของฉัน</h1><div class="sub">สวัสดี ${esc(emp.name)}</div></div>
-  </div>
-  <div class="panel">
-    <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px;">
-      ${avatarHtml(emp,64)}
-      <div>
-        <h3 style="margin:0 0 3px;">${esc(emp.name)}</h3>
-        <div class="muted" style="font-size:13px;">${esc(emp.position)} · ${esc(emp.department)}</div>
-      </div>
-    </div>
-  </div>
+  ${heroBannerHtml({
+    kicker: 'ปีงบประมาณ ' + summary.fy.be,
+    title: 'สวัสดี คุณ' + esc(emp.name.replace(/^(นาย|นางสาว|นาง)\s*/,'')),
+    text: `${esc(emp.position||'')}${emp.department?' · '+esc(emp.department):''} — ลาพักผ่อนคงเหลือ ${vac?vac.remaining:0} วัน${pending?` · มีคำขอลารออนุมัติ ${pending} รายการ`:''}`,
+    actions: `<button class="hero-btn" id="btnQuickLeave">${HERO_IC.plus}ยื่นขอลา</button>
+              <button class="hero-btn ghost" id="btnQuickLoan">${HERO_IC.plus}ยื่นขอกู้เงิน</button>
+              <button class="hero-btn ghost" id="btnQuickWelfare">${HERO_IC.plus}เบิกสวัสดิการ</button>`
+  })}
   <div class="panel">${individualReportHtml(summary, false, true)}</div>
-  <div class="grid grid-3">
-    <div class="panel" style="text-align:center;">
-      <div class="muted" style="font-size:12.5px; margin-bottom:10px;">ต้องการยื่นขอลา?</div>
-      <button class="btn btn-primary" id="btnQuickLeave" style="width:100%; justify-content:center;">+ ยื่นขอลา</button>
-    </div>
-    <div class="panel" style="text-align:center;">
-      <div class="muted" style="font-size:12.5px; margin-bottom:10px;">ต้องการยื่นขอกู้เงิน?</div>
-      <button class="btn btn-primary" id="btnQuickLoan" style="width:100%; justify-content:center;">+ ยื่นขอกู้เงิน</button>
-    </div>
-    <div class="panel" style="text-align:center;">
-      <div class="muted" style="font-size:12.5px; margin-bottom:10px;">ต้องการเบิกสวัสดิการ?</div>
-      <button class="btn btn-primary" id="btnQuickWelfare" style="width:100%; justify-content:center;">+ ยื่นเบิกสวัสดิการ</button>
-    </div>
-  </div>
   `;
 }
 

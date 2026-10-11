@@ -56,19 +56,150 @@ function playViewEnter(root){
 
 /* ---------- Topbar breadcrumb ---------- */
 function updateTopbar(){
-  const crumb = document.getElementById('topCrumb');
-  if(crumb){
-    const item = (typeof currentNav==='function' ? currentNav() : []).find(n=>n.id===state.currentView);
-    crumb.innerHTML = item ? `${navIconSvg(item.id).replace('<svg','<svg width="16" height="16" stroke="currentColor"')}<b>${esc(item.label)}</b>` : '';
-  }
-  const chip = document.getElementById('todayChip');
-  if(chip){
-    try{ chip.textContent = new Intl.DateTimeFormat('th-TH-u-ca-buddhist',{weekday:'long', day:'numeric', month:'long', year:'numeric'}).format(new Date()); }catch(e){}
-  }
   const fy = document.getElementById('brandFY');
-  if(fy && typeof fiscalYearBE==='function') fy.textContent = 'ปีงบประมาณ ' + fiscalYearBE();
+  if(fy && typeof fiscalYearBE==='function') fy.textContent = 'มูลนิธิการศึกษาทางไกลผ่านดาวเทียม · ปีงบประมาณ ' + fiscalYearBE();
   const foot = document.getElementById('loginArtFoot');
   if(foot && typeof fiscalYearBE==='function') foot.textContent = 'ปีงบประมาณ ' + fiscalYearBE();
+  updateBell();
+}
+
+/* ---------- navigation helper ---------- */
+function gotoView(view, after){
+  if(!currentNav().some(n=>n.id===view)) return;
+  closePopovers(); closeCmdk(); closeNavDrawer();
+  if(state.currentView !== view){
+    state.currentView = view;
+    renderNav();
+    renderView();
+    window.scrollTo({top:0, behavior: prefersReducedMotion()?'auto':'smooth'});
+  }
+  if(after) setTimeout(after, 60);
+}
+
+/* ---------- notifications (pending approvals) ---------- */
+function pendingItems(){
+  const pend = r => (r.approvalStatus||'approved')==='pending';
+  const mine = r => !isSelfUser() || r.employeeId===currentEmployeeId();
+  const out = [];
+  state.leaves.filter(r=>pend(r)&&mine(r)).forEach(l=>out.push({kind:'leaves', id:l.id, title:`${LEAVE_TYPES[l.leaveType]||'ลา'} ${safeNum(l.days)} วัน`, who:l.employeeName, when:l.startDate, empId:l.employeeId}));
+  state.loans.filter(r=>pend(r)&&mine(r)).forEach(l=>out.push({kind:'loans', id:l.id, title:`${l.loanType||'เงินกู้'} ${money(l.approvedAmount)} บาท`, who:l.employeeName, when:l.submitDate, empId:l.employeeId}));
+  state.welfare.filter(r=>pend(r)&&mine(r)).forEach(w=>out.push({kind:'welfare', id:w.id, title:`${w.category||'สวัสดิการ'} ${money(w.approvedAmount)} บาท`, who:w.employeeName, when:w.submitDate, empId:w.employeeId}));
+  return out.sort((a,b)=> String(b.when||'').localeCompare(String(a.when||'')));
+}
+function updateBell(){
+  const badge = document.getElementById('bellCount');
+  if(!badge || !state.currentUser) return;
+  const n = pendingItems().length;
+  badge.hidden = !n; badge.textContent = n > 99 ? '99+' : n;
+}
+function renderBellPop(){
+  const pop = document.getElementById('bellPop');
+  const items = pendingItems();
+  const kindLabel = {leaves:'วันลา', loans:'เงินกู้', welfare:'สวัสดิการ'};
+  pop.innerHTML = `<div class="pop-title">${isAdminUser() ? 'รายการรออนุมัติ' : 'คำขอของฉันที่รออนุมัติ'} <span>${items.length}</span></div>
+    ${items.length ? `<div class="pop-scroll">${items.slice(0,12).map(it=>`
+      <button type="button" class="notif" data-notif="${it.kind}:${it.id}">
+        ${avatarHtml(employeeById(it.empId), 32)}
+        <span class="notif-text"><b>${esc(it.who||'')}</b><span>${esc(kindLabel[it.kind])} · ${esc(it.title)}</span></span>
+        <span class="notif-when">${it.when ? esc(buddhistDate(it.when)) : ''}</span>
+      </button>`).join('')}</div>` : `<div class="pop-empty">ไม่มีรายการรออนุมัติ</div>`}`;
+}
+function openNotif(kind, id){
+  closePopovers();
+  if(kind==='leaves') openLeaveDetailModal(id);
+  else if(kind==='loans') openLoanDetailModal(id);
+  else if(kind==='welfare') openWelfareDetailModal(id);
+}
+
+/* ---------- popovers ---------- */
+function closePopovers(){ document.querySelectorAll('.popover').forEach(p=>{ p.hidden = true; }); }
+function togglePopover(id, render){
+  const pop = document.getElementById(id);
+  const willOpen = pop.hidden;
+  closePopovers();
+  if(willOpen){ if(render) render(); pop.hidden = false; }
+}
+
+/* ---------- command palette (Ctrl/Cmd + K) ---------- */
+let cmdkSel = 0, cmdkItems = [];
+function cmdkSource(q){
+  q = (q||'').trim().toLowerCase();
+  const match = t => !q || String(t).toLowerCase().includes(q);
+  const items = [];
+  currentNav().forEach(n=>{ if(match(n.label)||match(n.short)) items.push({group:'เมนู', icon:navIconSvg(n.id), label:n.label, run:()=>gotoView(n.id)}); });
+  const actions = isAdminUser() ? [
+    {label:'บันทึกวันลาใหม่', icon:navIconSvg('leaves'), run:()=>gotoView('leaves', ()=>openLeaveModal(null))},
+    {label:'เพิ่มพนักงานใหม่', icon:navIconSvg('employees'), run:()=>gotoView('employees', ()=>openEmployeeModal(null))},
+    {label:'บันทึกเงินกู้ใหม่', icon:navIconSvg('loans'), run:()=>gotoView('loans', ()=>openLoanModal(null))},
+    {label:'บันทึกเบิกสวัสดิการ', icon:navIconSvg('welfare'), run:()=>gotoView('welfare', ()=>openWelfareModal(null))}
+  ] : [
+    {label:'ยื่นขอลา', icon:navIconSvg('leaves'), run:()=>gotoView('myleaves', ()=>openLeaveModal(null))}
+  ];
+  actions.push({label:'ซิงค์ข้อมูลจาก Google Sheet', icon:'<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 9.5a4.3 4.3 0 0 1-1 8.5z"/></svg>', run:()=>{ closeCmdk(); syncFromSheet(true); }});
+  actions.push({label:'สลับโหมดสว่าง / มืด', icon:'<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>', run:()=>{ closeCmdk(); toggleTheme(); }});
+  actions.forEach(a=>{ if(match(a.label)) items.push(Object.assign({group:'คำสั่ง'}, a)); });
+  if(isAdminUser() && q){
+    state.employees.filter(e=>[e.name,e.code,e.position].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,6)
+      .forEach(e=> items.push({group:'พนักงาน', icon:avatarHtml(e,24), label:e.name, sub:e.position, run:()=>{ closeCmdk(); openEmployeeDetailModal(e.id); }}));
+  }
+  return items;
+}
+function renderCmdk(){
+  const list = document.getElementById('cmdkList');
+  cmdkItems = cmdkSource(document.getElementById('cmdkInput').value);
+  if(cmdkSel >= cmdkItems.length) cmdkSel = Math.max(0, cmdkItems.length-1);
+  let lastGroup = '';
+  list.innerHTML = cmdkItems.length ? cmdkItems.map((it,i)=>{
+    const head = it.group!==lastGroup ? `<div class="cmdk-group">${it.group}</div>` : '';
+    lastGroup = it.group;
+    return `${head}<button type="button" class="cmdk-item${i===cmdkSel?' sel':''}" data-cmdk="${i}">
+      <span class="cmdk-ic">${it.icon||''}</span><span class="cmdk-label">${esc(it.label)}${it.sub?`<small>${esc(it.sub)}</small>`:''}</span>
+      ${i===cmdkSel?'<kbd>Enter</kbd>':''}</button>`;
+  }).join('') : '<div class="cmdk-empty">ไม่พบเมนูหรือพนักงานที่ตรงกับคำค้น</div>';
+  list.querySelector('.cmdk-item.sel')?.scrollIntoView({block:'nearest'});
+}
+function openCmdk(){
+  if(!state.currentUser || document.getElementById('app').style.display==='none') return;
+  closePopovers();
+  const box = document.getElementById('cmdk');
+  box.hidden = false; cmdkSel = 0;
+  const input = document.getElementById('cmdkInput');
+  input.value = ''; renderCmdk(); setTimeout(()=>input.focus(), 20);
+}
+function closeCmdk(){ const box = document.getElementById('cmdk'); if(box) box.hidden = true; }
+
+document.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openCmdk(); return; }
+  const box = document.getElementById('cmdk');
+  if(box && !box.hidden){
+    if(e.key==='Escape'){ e.preventDefault(); closeCmdk(); }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); cmdkSel = Math.min(cmdkSel+1, cmdkItems.length-1); renderCmdk(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); cmdkSel = Math.max(cmdkSel-1, 0); renderCmdk(); }
+    else if(e.key==='Enter'){ e.preventDefault(); const it = cmdkItems[cmdkSel]; if(it) it.run(); }
+    return;
+  }
+  if(e.key==='Escape') closePopovers();
+});
+document.addEventListener('input', (e)=>{ if(e.target.id==='cmdkInput'){ cmdkSel = 0; renderCmdk(); } });
+document.addEventListener('click', (e)=>{
+  const t = e.target;
+  if(t.closest('#btnSearch')){ openCmdk(); return; }
+  if(t.id==='cmdk'){ closeCmdk(); return; }
+  const ci = t.closest('[data-cmdk]'); if(ci){ const it = cmdkItems[Number(ci.dataset.cmdk)]; if(it) it.run(); return; }
+  if(t.closest('#btnBell')){ togglePopover('bellPop', renderBellPop); return; }
+  if(t.closest('#userChip') || t.closest('[data-open-user]')){ togglePopover('userPop'); return; }
+  if(t.closest('#btnCalendar')){ gotoView(isAdminUser() ? 'leaves' : 'myleaves'); return; }
+  const n = t.closest('[data-notif]'); if(n){ const [k,id] = n.dataset.notif.split(':'); openNotif(k,id); return; }
+  const g = t.closest('[data-goto]'); if(g){ gotoView(g.dataset.goto, g.dataset.then ? ()=>runQuickAction(g.dataset.then) : null); return; }
+  if(t.closest('[data-pop-sync]')){ closePopovers(); syncFromSheet(true); return; }
+  if(t.closest('[data-theme-toggle]') && t.closest('.popover')){ closePopovers(); return; }
+  if(!t.closest('.popover')) closePopovers();
+});
+function runQuickAction(name){
+  if(name==='newLeave') openLeaveModal(null);
+  else if(name==='newEmp') openEmployeeModal(null);
+  else if(name==='newLoan') openLoanModal(null);
+  else if(name==='newWelfare') openWelfareModal(null);
 }
 
 /* ---------- Theme ---------- */
@@ -77,7 +208,7 @@ function applyTheme(t){
   document.documentElement.setAttribute('data-theme', t);
   try{ localStorage.setItem('hr_theme', t); }catch(e){}
   const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute('content', t==='dark' ? '#0E1412' : '#17735F');
+  if(meta) meta.setAttribute('content', t==='dark' ? '#0B1120' : '#1E3A8A');
   applyChartTheme();
   if(state && state.currentView==='dashboard' && typeof renderDashboardCharts==='function' && document.getElementById('app').style.display!=='none'){
     setTimeout(renderDashboardCharts, 0);
