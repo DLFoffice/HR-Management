@@ -169,7 +169,8 @@ const PANEL_IC = {
   bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   cake:'<path d="M4 21h16v-7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 0M12 12V8M12 4.5v.01"/>',
-  alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>'
+  alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>',
+  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'
 };
 function panelIc(id){
   const body = PANEL_IC[id] || NAV_ICONS[id] || '';

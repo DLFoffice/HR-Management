@@ -835,7 +835,7 @@ function viewMyLeaves(){
     <div><h1>วันลาของฉัน</h1><div class="sub">รวม ${rows.length} รายการ</div></div>
     <div class="actions"><button class="btn btn-primary" id="btnAddLeave">+ ยื่นขอลา</button></div>
   </div>
-  <div class="panel" id="myLeaveCalendarPanel">${leaveCalendarHtml(selfLeaveCalState, rows)}</div>
+  <div class="panel cal2-panel" id="myLeaveCalendarPanel">${leaveCalendarHtml(selfLeaveCalState, rows)}</div>
   <div class="panel">
     <div class="table-wrap"><table class="reg" id="myLeaveTable">
       <thead><tr><th class="rownum">#</th><th class="num">วันที่ยื่น</th><th>ประเภท</th><th class="num">ลาตั้งแต่</th><th class="num">ถึงวันที่</th><th class="num">จำนวนวัน</th><th>เหตุผล</th><th>สถานะ</th><th>จัดการ</th></tr></thead>

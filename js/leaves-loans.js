@@ -36,7 +36,7 @@ function viewLeaves(){
     <div class="actions"><button class="btn btn-primary" id="btnAddLeave">+ บันทึกวันลา</button></div>
   </div>
   <section id="leaveDash" class="leave-dash">${leaveDashHtml(adminLeaveCalState)}</section>
-  <div class="panel" id="leaveCalendarPanel"><h2>${panelIc('leaves')}ปฏิทินวันลา</h2>${leaveCalendarHtml(adminLeaveCalState, state.leaves)}</div>
+  <div class="panel cal2-panel" id="leaveCalendarPanel">${leaveCalendarHtml(adminLeaveCalState, state.leaves)}</div>
   <div class="panel">
     <div class="searchbar">
       <input type="text" id="leaveSearch" placeholder="ค้นหาชื่อพนักงาน">
@@ -56,7 +56,7 @@ function viewLeaves(){
 function refreshAdminLeaveCalendar(){
   const panel = document.getElementById('leaveCalendarPanel');
   if(!panel) return;
-  panel.innerHTML = `<h2>${panelIc('leaves')}ปฏิทินวันลา</h2>` + leaveCalendarHtml(adminLeaveCalState, state.leaves);
+  panel.innerHTML = leaveCalendarHtml(adminLeaveCalState, state.leaves);
   bindLeaveCalendarEvents(panel, adminLeaveCalState, state.leaves, refreshAdminLeaveCalendar);
   refreshLeaveDash();
 }
@@ -203,7 +203,7 @@ function leaveFormHtml(rec){
     </select></div>
     <div class="field"><label>ลาตั้งแต่วันที่ *</label>${thaiDateFieldHtml('f_start', r.startDate)}</div>
     <div class="field"><label>ถึงวันที่ *</label>${thaiDateFieldHtml('f_end', r.endDate)}</div>
-    <div class="field"><label>จำนวนวันลา (คำนวณอัตโนมัติ)</label><input type="text" id="f_days" value="${r.days??''}" readonly style="background:var(--lav-bg); color:var(--lav-deep); font-weight:600; cursor:not-allowed;"></div>
+    <div class="field"><label>จำนวนวันลา (วันทำการ คำนวณอัตโนมัติ)</label><input type="text" id="f_days" value="${r.days??''}" readonly style="background:var(--lav-bg); color:var(--lav-deep); font-weight:600; cursor:not-allowed;"><div class="days-note" id="f_daysNote"></div></div>
     <div class="field"><label>เหตุผลการลา</label><input id="f_reason" value="${esc(r.reason)}"></div>
     <div class="field full"><div id="f_balanceHint" class="balance-hint"></div></div>
     <div class="field full"><label>หมายเหตุ</label><textarea id="f_note">${esc(r.note)}</textarea></div>
@@ -226,11 +226,20 @@ function leaveFormHtml(rec){
   </div>`;
 }
 
+/* Leave length in working days (วันทำการ): weekends and public holidays are not counted */
 function calcLeaveDays(start, end){
   if(!start || !end) return '';
-  const d1 = new Date(start+'T00:00:00'), d2 = new Date(end+'T00:00:00');
-  if(isNaN(d1) || isNaN(d2) || d2 < d1) return '';
-  return Math.round((d2-d1)/86400000)+1;
+  const w = workingDaysBetween(start, end);
+  if(!w) return '';
+  return w.work;
+}
+function leaveDaysNote(start, end){
+  const w = workingDaysBetween(start, end);
+  if(!w || w.calendar===w.work) return '';
+  const parts = [];
+  if(w.weekend) parts.push(`เสาร์–อาทิตย์ ${w.weekend} วัน`);
+  if(w.holidays.length) parts.push(`วันหยุดราชการ ${w.holidays.length} วัน (${w.holidays.map(h=>h.name).join(', ')})`);
+  return `ช่วงนี้ ${w.calendar} วัน ไม่นับ${parts.join(' และ ')}`;
 }
 
 function openLeaveModal(id){
@@ -240,6 +249,8 @@ function openLeaveModal(id){
     const start = document.getElementById('f_start').value;
     const end = document.getElementById('f_end').value;
     document.getElementById('f_days').value = calcLeaveDays(start, end);
+    const note = document.getElementById('f_daysNote');
+    if(note) note.textContent = (start && end) ? leaveDaysNote(start, end) : '';
   };
   const updateHint = ()=>{
     const box = document.getElementById('f_balanceHint');
@@ -275,7 +286,8 @@ function openLeaveModal(id){
     const end = document.getElementById('f_end').value;
     if(!empId || !start || !end){ document.getElementById('f_error').style.display='block'; return; }
     let days = calcLeaveDays(start, end);
-    if(!days){ document.getElementById('f_error').textContent = 'วันที่ไม่ถูกต้อง (วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น)'; document.getElementById('f_error').style.display='block'; return; }
+    if(days===''){ document.getElementById('f_error').textContent = 'วันที่ไม่ถูกต้อง (วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น)'; document.getElementById('f_error').style.display='block'; return; }
+    if(days===0){ document.getElementById('f_error').textContent = 'ช่วงวันที่เลือกเป็นวันหยุดทั้งหมด ไม่ต้องยื่นลา'; document.getElementById('f_error').style.display='block'; return; }
     const emp = employeeById(empId);
     const data = {
       id: rec? rec.id : undefined,

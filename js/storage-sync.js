@@ -62,6 +62,7 @@ async function syncFromSheet(showToast){
     __syncFailCount = 0;
     hideSyncBanner();
     updateSyncStatus('ok');
+    if(typeof loadHolidaysFromGoogle==='function') loadHolidaysFromGoogle(false); // cached 12h, runs in background
     if(showToast) toast('ซิงค์ข้อมูลจาก Google Sheet สำเร็จ');
     if(document.getElementById('app').style.display !== 'none') renderView();
   }catch(e){

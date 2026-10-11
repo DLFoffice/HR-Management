@@ -35,7 +35,8 @@ function leaveMonthData(year, month){
     if(leaveDashFilter.type && l.leaveType!==leaveDashFilter.type) return;
     const cs = s < mStart ? mStart : s;
     const ce = e > mEnd ? mEnd : e;
-    const days = Math.round((ce - cs)/86400000) + 1;
+    const wk = workingDaysBetween(ldYmd(cs), ldYmd(ce));
+    const days = wk ? wk.work : Math.round((ce - cs)/86400000) + 1;   // working days inside this month
     items.push({ l, emp, s, e, cs, ce, days, from:cs.getDate(), to:ce.getDate(), pending:(l.approvalStatus||'approved')==='pending' });
   });
 
@@ -54,7 +55,10 @@ function leaveMonthData(year, month){
   const perDay = new Array(nDays+1).fill(0).map(()=>new Set());
   items.forEach(it=>{ for(let d=it.from; d<=it.to; d++) perDay[d].add(it.l.employeeId); });
   let peak = { day:0, count:0 };
-  for(let d=1; d<=nDays; d++) if(perDay[d].size > peak.count) peak = { day:d, count:perDay[d].size };
+  for(let d=1; d<=nDays; d++){
+    if(!isWorkingDay(new Date(year, month, d))) continue;   // peak is about staffing on working days
+    if(perDay[d].size > peak.count) peak = { day:d, count:perDay[d].size };
+  }
 
   const byType = { 'ป':{days:0, people:new Set()}, 'พ':{days:0, people:new Set()}, 'ก':{days:0, people:new Set()} };
   items.forEach(it=>{ const t = byType[it.l.leaveType]; if(t){ t.days += it.days; t.people.add(it.l.employeeId); } });
@@ -128,8 +132,12 @@ function leaveDashHtml(calState){
         ${upcomingHtml(upcomingLeaves(14), today)}
       </div>
       <div class="panel">
-        <h2>${panelIc('kpi')}สัดส่วนวันลาของเดือน</h2>
+        <h2>${panelIc('kpi')}สัดส่วนวันลาของเดือน <span class="h-count">วันทำการ</span></h2>
         ${typeBreakdownHtml(data)}
+      </div>
+      <div class="panel">
+        <h2>${panelIc('flag')}วันหยุดราชการเดือนนี้ <span class="h-count">${holidaysInMonth(calState.year, calState.month).length} วัน</span></h2>
+        ${holidayListHtml(calState)}
       </div>
     </div>
   </div>`;
@@ -145,16 +153,17 @@ function leaveTimelineHtml(data, today){
   const dayMeta = [];
   for(let d=1; d<=n; d++){
     const wd = new Date(data.year, data.month, d).getDay();
-    dayMeta.push({ d, wd, weekend: wd===0 || wd===6 });
+    const hol = holidayName(`${data.year}-${String(data.month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+    dayMeta.push({ d, wd, weekend: wd===0 || wd===6, hol, off: wd===0 || wd===6 || !!hol });
   }
   const cols = `style="--n:${n}"`;
   const head = `<div class="tl-row tl-head" ${cols}>
     <div class="tl-name">พนักงาน</div>
-    ${dayMeta.map(m=>`<div class="tl-day${m.weekend?' we':''}${m.d===todayDay?' today':''}"><small>${LD_WEEKDAY[m.wd]}</small>${m.d}</div>`).join('')}
+    ${dayMeta.map(m=>`<div class="tl-day${m.weekend?' we':''}${m.hol?' hol':''}${m.d===todayDay?' today':''}"${m.hol?` title="${esc(m.hol)}"`:''}><small>${LD_WEEKDAY[m.wd]}</small>${m.d}</div>`).join('')}
   </div>`;
   const load = `<div class="tl-row tl-load" ${cols}>
     <div class="tl-name"><small>จำนวนคนลา</small></div>
-    ${dayMeta.map(m=>{ const c = data.perDay[m.d].size; return `<div class="tl-load-cell${m.weekend?' we':''}" title="${m.d} ${THAI_MONTHS_SHORT[data.month]}: ${c} คน">${c?`<span class="lv lv${Math.min(c,4)}">${c}</span>`:''}</div>`; }).join('')}
+    ${dayMeta.map(m=>{ const c = m.off ? 0 : data.perDay[m.d].size; return `<div class="tl-load-cell${m.weekend?' we':''}${m.hol?' hol':''}" title="${m.d} ${THAI_MONTHS_SHORT[data.month]}: ${c} คน">${c?`<span class="lv lv${Math.min(c,4)}">${c}</span>`:''}</div>`; }).join('')}
   </div>`;
   const rows = data.peopleList.map(p=>{
     const types = [...new Set(p.items.map(i=>i.l.leaveType))];
@@ -163,7 +172,7 @@ function leaveTimelineHtml(data, today){
         ${avatarHtml(p.emp || {name:p.name}, 30)}
         <span class="tl-person-text"><b>${esc(p.name)}</b><small>${types.map(t=>LD_TYPE[t]?.label||t).join(' · ')} · ${p.days} วัน</small></span>
       </button>
-      ${dayMeta.map(m=>`<div class="tl-cell${m.weekend?' we':''}${m.d===todayDay?' today':''}" style="grid-column:${m.d+1}"></div>`).join('')}
+      ${dayMeta.map(m=>`<div class="tl-cell${m.weekend?' we':''}${m.hol?' hol':''}${m.d===todayDay?' today':''}" style="grid-column:${m.d+1}"></div>`).join('')}
       ${p.items.map(it=>`<button class="tl-bar t-${LD_TYPE[it.l.leaveType]?.cls||'vac'}${it.pending?' pending':''}${it.s<data.mStart?' cut-l':''}${it.e>data.mEnd?' cut-r':''}"
           style="grid-column:${it.from+1} / ${it.to+2}" data-ld-leave="${it.l.id}"
           title="${esc(LD_TYPE[it.l.leaveType]?.label||'ลา')} ${esc(ldRangeText(it.s, it.e))} (${safeNum(it.l.days)} วัน)${it.pending?' · รออนุมัติ':''}${it.l.reason?' · '+esc(it.l.reason):''}">
@@ -173,7 +182,7 @@ function leaveTimelineHtml(data, today){
   return `<div class="tl-scroll"><div class="tl" style="--n:${n}">${head}${rows}${load}</div></div>
     <div class="tl-legend">
       <span><i class="tl-key t-sick"></i>ลาป่วย</span><span><i class="tl-key t-vac"></i>ลาพักผ่อน</span><span><i class="tl-key t-personal"></i>ลากิจ</span>
-      <span><i class="tl-key t-vac pending"></i>รออนุมัติ</span><span><i class="tl-key we"></i>เสาร์–อาทิตย์</span>
+      <span><i class="tl-key t-vac pending"></i>รออนุมัติ</span><span><i class="tl-key we"></i>เสาร์–อาทิตย์</span><span><i class="tl-key hol"></i>วันหยุดราชการ</span>
       ${data.peak.count ? `<span class="tl-peak">วันที่ลาพร้อมกันมากที่สุด: <b>${LD_WEEKDAY[new Date(data.year,data.month,data.peak.day).getDay()]}. ${data.peak.day} ${THAI_MONTHS_SHORT[data.month]}</b> (${data.peak.count} คน)</span>` : ''}
     </div>`;
 }
@@ -205,6 +214,18 @@ function typeBreakdownHtml(data){
       <div class="tb-row"><span class="tb-label"><i class="lcal-dot lcal-${LD_TYPE[r.k].cls}"></i>${LD_TYPE[r.k].label}</span>
         <span class="tb-num"><b>${r.days}</b> วัน</span><span class="tb-sub">${r.people.size} คน · ${Math.round(r.pct)}%</span></div>`).join('')}
     </div>`;
+}
+
+function holidayListHtml(calState){
+  const list = holidaysInMonth(calState.year, calState.month);
+  const workDays = (()=>{ let n=0; const m=new Date(calState.year, calState.month+1, 0).getDate(); for(let d=1; d<=m; d++) if(isWorkingDay(new Date(calState.year, calState.month, d))) n++; return n; })();
+  const src = holidayState.source==='google' ? 'จาก Google Calendar' : 'จากรายการสำรองในระบบ';
+  return `${list.length ? `<div class="hol-list">${list.map(h=>{ const d = new Date(calState.year, calState.month, h.day); return `
+    <div class="hol-item${h.date < todayStr() ? ' past' : ''}">
+      <span class="hol-date"><b>${h.day}</b><small>${LD_WEEKDAY[d.getDay()]}.</small></span>
+      <span class="hol-name">${esc(h.name)}${h.weekend?'<small>ตรงกับวันหยุดสุดสัปดาห์</small>':''}</span>
+    </div>`; }).join('')}</div>` : `<div class="empty-note">ไม่มีวันหยุดราชการในเดือนนี้</div>`}
+    <div class="hol-foot">เดือนนี้มี <b>${workDays}</b> วันทำการ · ข้อมูลวันหยุด${src}</div>`;
 }
 
 function refreshLeaveDash(){

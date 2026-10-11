@@ -160,6 +160,17 @@ function bindViewEvents(v){
       }catch(e){ toast('เชื่อมต่อไม่สำเร็จ: '+e.message); }
     });
     document.getElementById('btnManualSync')?.addEventListener('click', ()=>syncFromSheet(true));
+    document.getElementById('btnReloadHolidays')?.addEventListener('click', async ()=>{
+      if(!gasReady()){ toast('กรุณาตั้งค่า Web App URL ก่อน'); return; }
+      toast('กำลังดึงวันหยุดจาก Google Calendar...');
+      const ok = await loadHolidaysFromGoogle(true);
+      toast(ok ? 'ดึงวันหยุดจาก Google Calendar สำเร็จ' : 'ดึงไม่สำเร็จ: ' + holidayState.error + ' — ระบบยังใช้รายการสำรองอยู่');
+      renderView();
+    });
+    document.getElementById('btnCopyHolidayGas')?.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(HOLIDAY_GAS_SNIPPET); toast('คัดลอกโค้ดแล้ว นำไปวางใน Code.gs'); }
+      catch(e){ const d = document.querySelector('.code-details'); if(d) d.open = true; toast('คัดลอกอัตโนมัติไม่ได้ — เลือกโค้ดในกล่องด้านล่างแล้วคัดลอกเอง'); }
+    });
     document.getElementById('btnRepairDates')?.addEventListener('click', async ()=>{
       if(!gasReady()){ toast('กรุณาตั้งค่า URL ก่อน'); return; }
       toast('กำลังซ่อมข้อมูลวันที่...');

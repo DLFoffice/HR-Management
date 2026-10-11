@@ -181,7 +181,8 @@ function expandLeaveDates(leaves){
     while(d <= end && guard < 370){
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       if(!map[key]) map[key] = [];
-      map[key].push({ name:l.employeeName, type:l.leaveType, id:l.id, empId:l.employeeId, pending:(l.approvalStatus||'approved')==='pending' });
+      map[key].push({ name:l.employeeName, type:l.leaveType, id:l.id, empId:l.employeeId, pending:(l.approvalStatus||'approved')==='pending',
+                      start: toDateOnly(l.startDate), end: toDateOnly(l.endDate || l.startDate), reason: l.reason||'' });
       d.setDate(d.getDate()+1);
       guard++;
     }
@@ -189,29 +190,52 @@ function expandLeaveDates(leaves){
   return map;
 }
 
+const THAI_DAYS_FULL = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+function calShortName(n){ return String(n||'').replace(/^(นาย|นางสาว|นาง|ว่าที่ร้อยตรีหญิง|ว่าที่ร้อยตรี|ดร\.)\s*/,'').trim(); }
+
 function buildLeaveCalendarGrid(year, month, leaveMap){
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month+1, 0).getDate();
-  let cells = '';
-  for(let i=0;i<firstDay;i++) cells += `<div class="lcal-cell lcal-muted"></div>`;
+  const prevDays = new Date(year, month, 0).getDate();
   const todayIso = todayStr();
+  let cells = '';
+  for(let i=firstDay-1; i>=0; i--) cells += `<div class="lcal-cell lcal-muted"><span class="c2-num">${prevDays-i}</span></div>`;
   for(let d=1; d<=daysInMonth; d++){
     const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const events = leaveMap[iso] || [];
+    const wd = new Date(year, month, d).getDay();
+    // stable order: earlier-starting leave first, so multi-day bars tend to stay on the same line
+    const events = (leaveMap[iso] || []).slice().sort((x,y)=> String(x.start).localeCompare(String(y.start)) || String(x.id).localeCompare(String(y.id)));
+    const people = new Set(events.map(e=>e.empId)).size;
+    const hol = typeof holidayName==='function' ? holidayName(iso) : '';
     const isToday = iso === todayIso;
     const shown = events.slice(0,3);
     const overflow = events.length - shown.length;
-    cells += `<div class="lcal-cell ${isToday?'lcal-today':''} ${events.length?'lcal-has-events':''}" data-cal-date="${iso}">
-      <div class="lcal-daynum">${d}</div>
+    const cls = ['lcal-cell', isToday?'lcal-today':'', events.length?'lcal-has-events':'', (wd===0||wd===6)?'lcal-weekend':'', hol?'lcal-holiday':'', iso < todayIso ? 'lcal-past':''].filter(Boolean).join(' ');
+    cells += `<div class="${cls}" data-cal-date="${iso}" style="--i:${d}">
+      <div class="c2-top">
+        <span class="c2-num">${d}</span>
+        ${people ? `<span class="c2-count" title="ลา ${people} คน">${people} คน</span>` : ''}
+        <button type="button" class="c2-add" data-cal-add="${iso}" title="บันทึกลาวันที่ ${d} ${THAI_MONTHS_FULL[month]}" aria-label="บันทึกลาวันนี้">+</button>
+      </div>
+      ${hol ? `<div class="c2-hol" title="${esc(hol)}">${esc(hol)}</div>` : ''}
       <div class="lcal-events">
-        ${shown.map(e=>`<div class="lcal-event lcal-${LEAVE_TYPE_CSS[e.type]||'personal'}" title="${esc(e.name)}">${esc((e.name||'').replace(/^(นาย|นางสาว|นาง)/,''))}${e.pending?' (รอ)':''}</div>`).join('')}
-        ${overflow>0?`<div class="lcal-more">+${overflow} เพิ่มเติม</div>`:''}
+        ${shown.map(e=>{
+          const startHere = e.start===iso || wd===0;
+          const endHere = e.end===iso || wd===6;
+          const pos = startHere && endHere ? 'one' : startHere ? 'start' : endHere ? 'end' : 'mid';
+          const nm = calShortName(e.name);
+          const off = (wd===0 || wd===6 || !!hol);   // day inside the leave range that isn't counted as a leave day
+          return `<div class="lcal-event c2-ev lcal-${LEAVE_TYPE_CSS[e.type]||'personal'} pos-${pos}${e.pending?' is-pending':''}${off?' is-off':''}" title="${esc(e.name)} · ${esc(LEAVE_TYPES[e.type]||'ลา')}${e.pending?' (รออนุมัติ)':''}${off?' · วันหยุด ไม่นับเป็นวันลา':''}${e.reason?' · '+esc(e.reason):''}">
+            ${startHere ? `<span class="c2-ini">${esc(nm.slice(0,1))}</span>` : ''}<span class="c2-name">${esc(nm)}</span>${e.pending && startHere?'<span class="c2-wait">รอ</span>':''}
+          </div>`;
+        }).join('')}
+        ${overflow>0?`<div class="lcal-more">+ อีก ${overflow} คน</div>`:''}
       </div>
     </div>`;
   }
   const totalCells = firstDay + daysInMonth;
   const trailing = (7-(totalCells%7))%7;
-  for(let i=0;i<trailing;i++) cells += `<div class="lcal-cell lcal-muted"></div>`;
+  for(let i=1;i<=trailing;i++) cells += `<div class="lcal-cell lcal-muted"><span class="c2-num">${i}</span></div>`;
   return cells;
 }
 
@@ -219,37 +243,67 @@ function leaveCalendarHtml(calState, leaves){
   const map = expandLeaveDates(leaves);
   const nowY = new Date().getFullYear();
   let yearOptions = '';
-  for(let y=nowY+3; y>=nowY-8; y--){
-    yearOptions += `<option value="${y}" ${y===calState.year?'selected':''}>${y+543}</option>`;
-  }
+  for(let y=nowY+3; y>=nowY-8; y--) yearOptions += `<option value="${y}" ${y===calState.year?'selected':''}>${y+543}</option>`;
   const monthOptions = THAI_MONTHS_FULL.map((m,i)=>`<option value="${i}" ${i===calState.month?'selected':''}>${m}</option>`).join('');
+  // month summary
+  const prefix = `${calState.year}-${String(calState.month+1).padStart(2,'0')}-`;
+  const ids = new Set(), ppl = new Set();
+  Object.keys(map).forEach(k=>{ if(k.startsWith(prefix)) map[k].forEach(e=>{ ids.add(e.id); ppl.add(e.empId); }); });
+  const hols = typeof holidaysInMonth==='function' ? holidaysInMonth(calState.year, calState.month) : [];
+  let work = 0; const nd = new Date(calState.year, calState.month+1, 0).getDate();
+  for(let d=1; d<=nd; d++){ const dt = new Date(calState.year, calState.month, d); if(typeof isWorkingDay==='function' ? isWorkingDay(dt) : (dt.getDay()%6!==0)) work++; }
+  const t = new Date(); const isThisMonth = t.getFullYear()===calState.year && t.getMonth()===calState.month;
+  const dir = calState.dir || ''; calState.dir = '';
   return `
-  <div class="lcal-wrap">
-    <div class="lcal-header">
-      <button class="btn btn-sm" data-cal-nav="prev">‹</button>
-      <div class="lcal-title-group">
-        <select class="lcal-month-select" data-cal-month>${monthOptions}</select>
-        <select class="lcal-year-select" data-cal-year>${yearOptions}</select>
+  <div class="lcal-wrap cal2">
+    <div class="cal2-head">
+      <div class="cal2-titlebox">
+        <div class="cal2-title"><span>${THAI_MONTHS_FULL[calState.month]}</span> <em>${calState.year+543}</em></div>
+        <div class="cal2-meta">
+          <span class="cm"><b>${ids.size}</b> รายการลา</span>
+          <span class="cm"><b>${ppl.size}</b> คน</span>
+          <span class="cm cm-hol"><b>${hols.length}</b> วันหยุดราชการ</span>
+          <span class="cm cm-work"><b>${work}</b> วันทำการ</span>
+        </div>
       </div>
-      <button class="btn btn-sm" data-cal-nav="next">›</button>
-      <button class="btn btn-sm" data-cal-today>วันนี้</button>
+      <div class="cal2-nav">
+        <button class="cal2-btn" data-cal-nav="prev" aria-label="เดือนก่อน"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <select class="lcal-month-select" data-cal-month aria-label="เดือน">${monthOptions}</select>
+        <select class="lcal-year-select" data-cal-year aria-label="ปี">${yearOptions}</select>
+        <button class="cal2-btn" data-cal-nav="next" aria-label="เดือนถัดไป"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        <button class="cal2-today${isThisMonth?' on':''}" data-cal-today>วันนี้</button>
+      </div>
     </div>
     <div class="lcal-grid lcal-grid-head">
-      ${['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=>`<div class="lcal-dayname">${d}</div>`).join('')}
+      ${THAI_DAYS_FULL.map((d,i)=>`<div class="lcal-dayname${i===0||i===6?' we':''}"><span class="dn-full">${d}</span><span class="dn-short">${THAI_DAYS_SHORT[i]}</span></div>`).join('')}
     </div>
-    <div class="lcal-grid">${buildLeaveCalendarGrid(calState.year, calState.month, map)}</div>
+    <div class="lcal-grid cal2-grid${dir?' slide-'+dir:''}">${buildLeaveCalendarGrid(calState.year, calState.month, map)}</div>
     <div class="lcal-legend">
-      <span class="lcal-legend-item"><span class="lcal-dot lcal-sick"></span> ลาป่วย</span>
-      <span class="lcal-legend-item"><span class="lcal-dot lcal-vac"></span> ลาพักผ่อน</span>
-      <span class="lcal-legend-item"><span class="lcal-dot lcal-personal"></span> ลากิจ</span>
+      <span class="lcal-legend-item"><span class="lg lg-sick"></span>ลาป่วย</span>
+      <span class="lcal-legend-item"><span class="lg lg-vac"></span>ลาพักผ่อน</span>
+      <span class="lcal-legend-item"><span class="lg lg-personal"></span>ลากิจ</span>
+      <span class="lcal-legend-item"><span class="lg lg-pending"></span>รออนุมัติ</span>
+      <span class="lcal-legend-item"><span class="lg lg-hol"></span>วันหยุดราชการ</span>
+      <span class="lcal-legend-item"><span class="lg lg-we"></span>เสาร์–อาทิตย์</span>
+      <span class="lcal-legend-hint">คลิกวันเพื่อดูรายชื่อ · กด + เพื่อบันทึกลาวันนั้น</span>
     </div>
   </div>`;
 }
 
+/* Fill a Thai date field (hidden ISO input + visible label) and fire change */
+function setThaiDateField(id, iso){
+  const hidden = document.getElementById(id);
+  if(!hidden) return;
+  hidden.value = iso || '';
+  const disp = hidden.closest('.tdate-field')?.querySelector('.tdate-display');
+  if(disp) disp.value = iso ? buddhistDate(iso) : '';
+  hidden.dispatchEvent(new Event('change', {bubbles:true}));
+}
+
 function bindLeaveCalendarEvents(container, calState, leaves, rerenderFn){
   container.querySelectorAll('[data-cal-nav]').forEach(b=>b.addEventListener('click', ()=>{
-    if(b.dataset.calNav==='prev'){ calState.month--; if(calState.month<0){calState.month=11; calState.year--;} }
-    else { calState.month++; if(calState.month>11){calState.month=0; calState.year++;} }
+    if(b.dataset.calNav==='prev'){ calState.month--; if(calState.month<0){calState.month=11; calState.year--;} calState.dir='prev'; }
+    else { calState.month++; if(calState.month>11){calState.month=0; calState.year++;} calState.dir='next'; }
     rerenderFn();
   }));
   const monthSel = container.querySelector('[data-cal-month]');
@@ -262,6 +316,12 @@ function bindLeaveCalendarEvents(container, calState, leaves, rerenderFn){
     calState.year = t.getFullYear(); calState.month = t.getMonth();
     rerenderFn();
   });
+  container.querySelectorAll('[data-cal-add]').forEach(btn=>btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const iso = btn.dataset.calAdd;
+    openLeaveModal(null);
+    setTimeout(()=>{ setThaiDateField('f_start', iso); setThaiDateField('f_end', iso); }, 30);
+  }));
   const map = expandLeaveDates(leaves);
   container.querySelectorAll('.lcal-cell.lcal-has-events').forEach(cell=>{
     cell.addEventListener('click', ()=>{

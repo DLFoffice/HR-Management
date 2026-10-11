@@ -1262,3 +1262,162 @@ kbd{ font-family:inherit; font-size:11px; padding:2px 7px; border-radius:6px; bo
 .lcal-grid{ grid-template-columns:repeat(7, minmax(0, 1fr)); }
 .lcal-cell{ min-width:0; overflow:hidden; }
 @media(max-width:620px){ .lcal-event{ font-size:0; height:6px; padding:0; border-radius:3px; } .lcal-more{ font-size:9px; } }
+
+/* ---------- holidays ---------- */
+.ld-side{ grid-template-columns:1.3fr 1fr 1fr; }
+@media(max-width:1180px){ .ld-side{ grid-template-columns:1fr 1fr; } }
+@media(max-width:900px){ .ld-side{ grid-template-columns:1fr; } }
+.lcal-cell.lcal-weekend{ background:var(--paper-2); }
+.lcal-cell.lcal-weekend .lcal-daynum{ color:var(--ink-faint); }
+.lcal-cell.lcal-holiday{ background:color-mix(in srgb, #EF4444 6%, var(--paper)); border-color:color-mix(in srgb, #EF4444 22%, var(--line)); }
+.lcal-cell.lcal-holiday .lcal-daynum{ color:#DC2626; }
+.lcal-daynum{ display:flex; align-items:baseline; gap:6px; min-width:0; }
+.lcal-hol{ font-size:10.5px; font-weight:600; color:#DC2626; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+:root[data-theme="dark"] .lcal-cell.lcal-holiday .lcal-daynum, :root[data-theme="dark"] .lcal-hol{ color:#F87171; }
+.lcal-dot.lcal-holdot{ background:#EF4444; border-radius:3px; }
+.lcal-dot.lcal-wedot{ background:var(--bg-2); border:1px solid var(--line-strong); }
+@media(max-width:620px){ .lcal-hol{ display:none; } }
+.tl-day.hol{ color:#DC2626; background:color-mix(in srgb, #EF4444 9%, transparent); }
+.tl-day.hol small{ color:#DC2626; }
+.tl-cell.hol{ background:repeating-linear-gradient(135deg, color-mix(in srgb, #EF4444 9%, transparent) 0 6px, transparent 6px 12px); }
+.tl-load-cell.hol{ background:color-mix(in srgb, #EF4444 6%, transparent); }
+.tl-key.hol{ background:repeating-linear-gradient(135deg, rgba(239,68,68,.35) 0 3px, transparent 3px 6px); border:1px solid rgba(239,68,68,.4); }
+.hol-list{ display:flex; flex-direction:column; gap:2px; }
+.hol-item{ display:flex; align-items:center; gap:12px; padding:7px 0; }
+.hol-item + .hol-item{ border-top:1px solid var(--line); }
+.hol-item.past{ opacity:.5; }
+.hol-date{ width:42px; height:42px; flex-shrink:0; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; background:color-mix(in srgb, #EF4444 10%, transparent); color:#DC2626; }
+.hol-date b{ font-size:16px; } .hol-date small{ font-size:10.5px; }
+.hol-name{ font-size:13.5px; font-weight:500; min-width:0; }
+.hol-name small{ display:block; font-size:11.5px; color:var(--ink-faint); font-weight:400; }
+.hol-foot{ margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-faint); }
+.hol-foot b{ color:var(--ink); }
+.days-note{ font-size:12px; color:var(--ink-soft); margin-top:5px; line-height:1.5; }
+.days-note:empty{ display:none; }
+.code-details{ margin-top:12px; }
+.code-details summary{ cursor:pointer; font-size:13px; color:var(--accent); font-weight:600; }
+.code-block{ margin:10px 0 0; padding:14px 16px; border-radius:12px; background:#0F1A33; color:#DCE6FB; font-size:12px; line-height:1.6; overflow-x:auto; white-space:pre; font-family:ui-monospace, Menlo, Consolas, monospace; }
+
+/* =====================================================================
+   Leave calendar v2
+   ===================================================================== */
+.cal2-panel{ padding:0; overflow:hidden; }
+.cal2{ padding:0 0 18px; }
+.cal2-head{
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  padding:20px 24px 18px; margin-bottom:6px;
+  background:linear-gradient(180deg, var(--accent-soft), transparent);
+  border-bottom:1px solid var(--line);
+}
+.cal2-title{ font-size:26px; font-weight:700; letter-spacing:-.4px; line-height:1.2; color:var(--ink); }
+.cal2-title em{ font-style:normal; font-weight:500; color:var(--accent); }
+.cal2-meta{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.cm{ font-size:12.5px; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); padding:3px 10px; border-radius:20px; }
+.cm b{ color:var(--ink); font-weight:700; margin-right:2px; }
+.cm-hol b{ color:#DC2626; }
+.cm-work b{ color:var(--accent); }
+.cal2-nav{ display:flex; align-items:center; gap:6px; padding:5px; border-radius:14px; background:var(--paper); border:1px solid var(--line); box-shadow:var(--shadow-sm); }
+.cal2-btn{ width:34px; height:34px; border-radius:10px; border:none; background:transparent; color:var(--ink-soft); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:background-color .2s, color .2s, transform .3s var(--spring); }
+.cal2-btn:hover{ background:var(--accent-soft); color:var(--accent); }
+.cal2-btn:active{ transform:scale(.9); }
+.cal2-btn svg{ width:18px; height:18px; }
+.cal2 .lcal-month-select, .cal2 .lcal-year-select{ height:34px; border:none; background:var(--bg); border-radius:10px; padding:0 10px; font-weight:600; font-size:14px; color:var(--ink); cursor:pointer; }
+.cal2-today{ height:34px; padding:0 14px; border:none; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px; background:var(--grad); color:#fff; box-shadow:0 6px 14px -8px var(--accent); transition:filter .2s, transform .3s var(--spring); }
+.cal2-today:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+.cal2-today.on{ background:var(--bg); color:var(--ink-faint); box-shadow:none; }
+
+.cal2 .lcal-grid{ gap:6px; padding:0 18px; }
+.cal2 .lcal-grid-head{ margin:8px 0 6px; }
+.cal2 .lcal-dayname{ font-size:12.5px; font-weight:600; color:var(--ink-soft); padding:6px 0; letter-spacing:.2px; }
+.cal2 .lcal-dayname.we{ color:#E11D48; }
+.dn-short{ display:none; }
+
+.cal2 .lcal-cell{
+  position:relative; min-height:112px; padding:8px 8px 8px; border-radius:14px;
+  border:1px solid var(--line); background:var(--paper);
+  display:flex; flex-direction:column; gap:4px;
+  transition:border-color .2s, box-shadow .25s var(--ease), transform .3s var(--spring);
+}
+.cal2 .lcal-cell:not(.lcal-muted):hover{ border-color:color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow:0 10px 24px -16px rgba(30,64,175,.55); transform:translateY(-2px); z-index:2; }
+.cal2 .lcal-cell.lcal-muted{ background:transparent; border:1px dashed var(--line); min-height:0; }
+.cal2 .lcal-cell.lcal-muted .c2-num{ color:var(--ink-faint); opacity:.5; font-size:12px; }
+.cal2 .lcal-cell.lcal-weekend{ background:var(--paper-2); }
+.cal2 .lcal-cell.lcal-weekend .c2-num{ color:#E11D48; }
+.cal2 .lcal-cell.lcal-holiday{ background:linear-gradient(160deg, color-mix(in srgb, #EF4444 9%, var(--paper)) 0%, var(--paper) 70%); border-color:color-mix(in srgb, #EF4444 28%, var(--line)); }
+.cal2 .lcal-cell.lcal-past:not(.lcal-today) .c2-num{ opacity:.55; }
+.cal2 .lcal-cell.lcal-today{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring); }
+.c2-top{ display:flex; align-items:center; gap:6px; min-height:26px; }
+.c2-num{ font-size:14px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; min-width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; }
+.lcal-today .c2-num{ background:var(--grad); color:#fff !important; box-shadow:0 6px 14px -6px var(--accent); }
+.lcal-holiday .c2-num{ color:#DC2626; }
+.c2-count{ font-size:10.5px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft); padding:1px 7px; border-radius:20px; }
+.c2-add{
+  margin-left:auto; width:24px; height:24px; border-radius:8px; border:1px dashed var(--line-strong);
+  background:var(--paper); color:var(--accent); font-size:16px; line-height:1; cursor:pointer;
+  opacity:0; transform:scale(.8); transition:opacity .2s, transform .3s var(--spring), background-color .2s;
+}
+.lcal-cell:hover .c2-add, .c2-add:focus-visible{ opacity:1; transform:scale(1); }
+.c2-add:hover{ background:var(--grad); color:#fff; border-color:transparent; }
+.c2-hol{ font-size:11px; font-weight:600; color:#DC2626; padding:1px 7px; border-radius:6px; background:color-mix(in srgb, #EF4444 10%, transparent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+:root[data-theme="dark"] .c2-hol, :root[data-theme="dark"] .lcal-holiday .c2-num{ color:#F87171; }
+
+/* leave pills — connect across consecutive days */
+.cal2 .lcal-events{ gap:4px; }
+.c2-ev{
+  position:relative; display:flex; align-items:center; gap:5px; height:24px; padding:0 8px 0 4px;
+  font-size:11.5px; font-weight:600; border-radius:8px; color:#fff; overflow:hidden; white-space:nowrap;
+  box-shadow:0 4px 10px -6px rgba(15,26,51,.45);
+  animation:evIn .45s var(--spring) both; animation-delay:calc(var(--i, 1) * 12ms);
+}
+@keyframes evIn{ from{ opacity:0; transform:translateY(4px) scale(.96); } }
+.c2-ev.lcal-sick{ background:linear-gradient(90deg,#F43F5E,#FB7185); color:#fff; }
+.c2-ev.lcal-vac{ background:linear-gradient(90deg,#2563EB,#3B82F6); color:#fff; }
+.c2-ev.lcal-personal{ background:linear-gradient(90deg,#F59E0B,#FBBF24); color:#fff; }
+.c2-ev.is-pending{ background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.3) 0 5px, transparent 5px 10px), linear-gradient(90deg,#2563EB,#3B82F6); }
+.c2-ev.lcal-sick.is-pending{ background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.3) 0 5px, transparent 5px 10px), linear-gradient(90deg,#F43F5E,#FB7185); }
+.c2-ev.lcal-personal.is-pending{ background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.3) 0 5px, transparent 5px 10px), linear-gradient(90deg,#F59E0B,#FBBF24); }
+.c2-ev.pos-start{ border-top-right-radius:0; border-bottom-right-radius:0; margin-right:-15px; }
+.c2-ev.pos-mid{ border-radius:0; margin:0 -15px; padding-left:10px; }
+.c2-ev.pos-end{ border-top-left-radius:0; border-bottom-left-radius:0; margin-left:-15px; padding-left:10px; }
+.c2-ev.pos-mid .c2-name, .c2-ev.pos-end .c2-name{ opacity:.82; font-weight:500; }
+.c2-ini{ width:18px; height:18px; flex-shrink:0; border-radius:50%; background:rgba(255,255,255,.28); display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; }
+.c2-name{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.c2-wait{ margin-left:auto; flex-shrink:0; font-size:10px; padding:0 5px; border-radius:5px; background:rgba(255,255,255,.3); }
+.cal2 .lcal-more{ font-size:11px; font-weight:600; color:var(--accent); padding:0 4px; }
+
+/* month slide */
+.cal2-grid.slide-next{ animation:calNext .45s var(--ease); }
+.cal2-grid.slide-prev{ animation:calPrev .45s var(--ease); }
+@keyframes calNext{ from{ opacity:0; transform:translateX(24px); } }
+@keyframes calPrev{ from{ opacity:0; transform:translateX(-24px); } }
+
+/* legend */
+.cal2 .lcal-legend{ margin:16px 18px 0; padding-top:14px; gap:8px 18px; align-items:center; }
+.lg{ display:inline-block; width:22px; height:10px; border-radius:5px; }
+.lg-sick{ background:linear-gradient(90deg,#F43F5E,#FB7185); }
+.lg-vac{ background:linear-gradient(90deg,#2563EB,#3B82F6); }
+.lg-personal{ background:linear-gradient(90deg,#F59E0B,#FBBF24); }
+.lg-pending{ background:repeating-linear-gradient(135deg, rgba(255,255,255,.45) 0 3px, transparent 3px 6px), linear-gradient(90deg,#2563EB,#3B82F6); }
+.lg-hol{ background:color-mix(in srgb, #EF4444 18%, var(--paper)); border:1px solid color-mix(in srgb, #EF4444 40%, transparent); }
+.lg-we{ background:var(--paper-2); border:1px solid var(--line-strong); }
+.lcal-legend-hint{ margin-left:auto; font-size:12px; color:var(--ink-faint); }
+
+@media(max-width:900px){
+  .cal2-head{ padding:16px; }
+  .cal2-title{ font-size:22px; }
+  .cal2 .lcal-grid{ padding:0 10px; gap:4px; }
+  .cal2 .lcal-cell{ min-height:74px; padding:5px; border-radius:10px; }
+  .dn-full{ display:none; } .dn-short{ display:inline; }
+  .c2-count, .c2-add{ display:none; }
+  .c2-ev{ height:7px; padding:0; font-size:0; border-radius:4px; }
+  .c2-ev .c2-ini, .c2-ev .c2-wait{ display:none; }
+  .c2-ev.pos-start{ margin-right:-9px; } .c2-ev.pos-mid{ margin:0 -9px; } .c2-ev.pos-end{ margin-left:-9px; }
+  .c2-hol{ font-size:0; height:4px; padding:0; }
+  .c2-num{ font-size:12.5px; min-width:22px; height:22px; }
+  .lcal-legend-hint{ display:none; }
+  .cal2 .lcal-legend{ margin:12px 10px 0; }
+}
+@media(max-width:620px){ .cal2-nav{ width:100%; justify-content:space-between; } .cal2 .lcal-month-select{ flex:1; } }
+.c2-ev.is-off{ opacity:.38; box-shadow:none; }
+.cal2-today{ white-space:nowrap; flex-shrink:0; }
+@media(max-width:900px){ .cal2 .lcal-more{ font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0; } }

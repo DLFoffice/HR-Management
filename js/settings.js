@@ -24,6 +24,31 @@ function viewSettings(){
   </div>
 
   <div class="panel">
+    <h2>วันหยุดราชการ (Google Calendar)</h2>
+    <div class="policy-strip"><span class="policy-dot" style="background:${holidayState.source==='google'?'var(--green)':'var(--marigold)'}"></span>
+      ${holidayState.source==='google'
+        ? `ดึงจาก Google Calendar แล้ว · ล่าสุด ${holidayState.fetchedAt ? fmtDateTime(holidayState.fetchedAt) : '-'}`
+        : `ตอนนี้ใช้รายการวันหยุดสำรองในระบบ (ปี 2569–2570)${holidayState.error ? ' — ' + esc(holidayState.error) : ''}`}
+      · ทั้งหมด ${Object.keys(holidayState.map).length} วัน</div>
+    <div style="font-size:13.5px; color:var(--ink-soft); line-height:1.8; margin-bottom:10px;">
+      วันหยุดใช้แสดงในปฏิทินวันลาและไทม์ไลน์ และใช้คำนวณจำนวนวันลาเป็น <b>วันทำการ</b> (ไม่นับเสาร์–อาทิตย์และวันหยุดราชการ)
+      <br>วันหยุดที่จะถึง: ${nextHolidays(4).map(h=>`<span class="tag tag-navy" style="margin:2px 4px 2px 0;">${esc(buddhistDate(h.date))} ${esc(h.name)}</span>`).join('') || '-'}
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+      <button class="btn btn-primary btn-sm" id="btnReloadHolidays">ดึงวันหยุดจาก Google ใหม่</button>
+      <button class="btn btn-sm" id="btnCopyHolidayGas">คัดลอกโค้ด Apps Script</button>
+    </div>
+    <div class="steps"><ol>
+      <li>เปิดโปรเจกต์ Apps Script เดิมของระบบ (จาก Google Sheet → ส่วนขยาย → Apps Script)</li>
+      <li>กด "คัดลอกโค้ด Apps Script" แล้ววางต่อท้ายไฟล์ <code class="inline">Code.gs</code></li>
+      <li>เพิ่มบรรทัด <code class="inline">if (e && e.parameter && e.parameter.action === 'holidays') return handleHolidays_(e);</code> เป็นบรรทัดแรกในฟังก์ชัน <code class="inline">doGet(e)</code></li>
+      <li>กด Deploy → Manage deployments → แก้ไข (ไอคอนดินสอ) → Version: New version → Deploy แล้วกดอนุญาตสิทธิ์เข้าถึง Google Calendar</li>
+      <li>กลับมากด "ดึงวันหยุดจาก Google ใหม่" — URL ของ Web App ไม่เปลี่ยน</li>
+    </ol></div>
+    <details class="code-details"><summary>ดูโค้ด Apps Script</summary><pre class="code-block" id="holidayGasCode">${esc(HOLIDAY_GAS_SNIPPET)}</pre></details>
+  </div>
+
+  <div class="panel">
     <h2>นโยบายวันลาพักผ่อนสะสม (ยกยอดข้ามปีงบประมาณ)</h2>
     <div class="policy-strip"><span class="policy-dot"></span>${esc(vacationPolicyText())}</div>
     <div style="font-size:13.5px; color:var(--ink-soft); line-height:1.8;">
