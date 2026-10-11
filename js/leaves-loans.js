@@ -32,11 +32,11 @@ function tomorrowLeaveReminderHtml(){
 function viewLeaves(){
   return `
   <div class="page-header">
-    <div><h1>บันทึกวันลา</h1><div class="sub">รวมทั้งหมด ${state.leaves.length} รายการ</div></div>
+    <div><h1>บันทึกวันลา</h1><div class="sub">ภาพรวมการลารายเดือน ปฏิทิน และรายการลาทั้งหมด ${state.leaves.length} รายการ</div></div>
     <div class="actions"><button class="btn btn-primary" id="btnAddLeave">+ บันทึกวันลา</button></div>
   </div>
-  ${tomorrowLeaveReminderHtml()}
-  <div class="panel" id="leaveCalendarPanel">${leaveCalendarHtml(adminLeaveCalState, state.leaves)}</div>
+  <section id="leaveDash" class="leave-dash">${leaveDashHtml(adminLeaveCalState)}</section>
+  <div class="panel" id="leaveCalendarPanel"><h2>${panelIc('leaves')}ปฏิทินวันลา</h2>${leaveCalendarHtml(adminLeaveCalState, state.leaves)}</div>
   <div class="panel">
     <div class="searchbar">
       <input type="text" id="leaveSearch" placeholder="ค้นหาชื่อพนักงาน">
@@ -56,8 +56,9 @@ function viewLeaves(){
 function refreshAdminLeaveCalendar(){
   const panel = document.getElementById('leaveCalendarPanel');
   if(!panel) return;
-  panel.innerHTML = leaveCalendarHtml(adminLeaveCalState, state.leaves);
+  panel.innerHTML = `<h2>${panelIc('leaves')}ปฏิทินวันลา</h2>` + leaveCalendarHtml(adminLeaveCalState, state.leaves);
   bindLeaveCalendarEvents(panel, adminLeaveCalState, state.leaves, refreshAdminLeaveCalendar);
+  refreshLeaveDash();
 }
 
 function leaveRows(){

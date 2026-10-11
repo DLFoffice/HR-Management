@@ -22,7 +22,8 @@ NAV_ICONS.mykpi = NAV_ICONS.kpi;
 NAV_ICONS.mytraining = NAV_ICONS.training;
 
 function navIconSvg(id){
-  return `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICONS[id]||''}</svg>`;
+  const body = NAV_ICONS[id] || (typeof PANEL_IC!=='undefined' && PANEL_IC[id]) || '';
+  return `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
 const prefersReducedMotion = ()=> window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;

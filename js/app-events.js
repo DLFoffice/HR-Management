@@ -67,6 +67,7 @@ function bindViewEvents(v){
   else if(v==='leaves'){
     document.getElementById('btnAddLeave')?.addEventListener('click', ()=>openLeaveModal(null));
     bindLeaveCalendarEvents(document.getElementById('leaveCalendarPanel'), adminLeaveCalState, state.leaves, refreshAdminLeaveCalendar);
+    bindLeaveDash();
     document.getElementById('leaveSearch')?.addEventListener('input', renderLeaveTable);
     document.getElementById('leaveTypeFilter')?.addEventListener('change', renderLeaveTable);
     document.getElementById('leaveStatusFilter')?.addEventListener('change', renderLeaveTable);
