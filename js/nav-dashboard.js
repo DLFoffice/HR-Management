@@ -10,6 +10,7 @@ const NAV_ADMIN = [
   {id:'kpi', label:'ประเมินผล KPI', short:'KPI'},
   {id:'training', label:'ฝึกอบรม/พัฒนาบุคลากร', short:'อบรม'},
   {id:'reports', label:'รายงาน / PDF', short:'รายงาน'},
+  {id:'payroll', label:'เงินสะสม / เลื่อนเงินเดือน', short:'เงินเดือน', href:'payroll.html'},
   {id:'settings', label:'ตั้งค่าเชื่อมต่อ', short:'ตั้งค่า', bottom:true}
 ];
 const NAV_SELF = [
@@ -35,6 +36,8 @@ function renderNav(){
   const nav = document.getElementById('navlist');
   const list = currentNav();
   nav.innerHTML = '<div class="nav-indicator"></div>' + list.map(n=>{
+    if(n.href) return `<a class="nav-link" href="${n.href}" target="_blank" rel="noopener" title="${esc(n.label)} (เปิดหน้าใหม่)">
+      <span class="nav-ic">${navIconSvg(n.id)}<span class="nav-ext">↗</span></span><span class="rail-label">${esc(n.short||n.label)}</span></a>`;
     const c = navPendingCount(n.id);
     return `<button data-view="${n.id}" class="${state.currentView===n.id?'active':''}${n.bottom?' nav-bottom':''}" title="${esc(n.label)}">
       <span class="nav-ic">${navIconSvg(n.id)}${c?`<span class="nav-count" title="รออนุมัติ">${c}</span>`:''}</span><span class="rail-label">${esc(n.short||n.label)}</span>

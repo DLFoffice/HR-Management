@@ -14,6 +14,7 @@ const NAV_ICONS = {
   reports:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
 };
+NAV_ICONS.payroll = '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3"/><path d="M3 5v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 12h-5a2 2 0 0 0 0 4h5z"/>';
 NAV_ICONS.myhome = '<path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>';
 NAV_ICONS.myleaves = NAV_ICONS.leaves;
 NAV_ICONS.myloans = NAV_ICONS.loans;
@@ -66,7 +67,9 @@ function updateTopbar(){
 
 /* ---------- navigation helper ---------- */
 function gotoView(view, after){
-  if(!currentNav().some(n=>n.id===view)) return;
+  const item = currentNav().find(n=>n.id===view);
+  if(!item) return;
+  if(item.href){ window.open(item.href, '_blank', 'noopener'); return; }
   closePopovers(); closeCmdk(); closeNavDrawer();
   if(state.currentView !== view){
     state.currentView = view;
@@ -127,7 +130,7 @@ function cmdkSource(q){
   q = (q||'').trim().toLowerCase();
   const match = t => !q || String(t).toLowerCase().includes(q);
   const items = [];
-  currentNav().forEach(n=>{ if(match(n.label)||match(n.short)) items.push({group:'เมนู', icon:navIconSvg(n.id), label:n.label, run:()=>gotoView(n.id)}); });
+  currentNav().forEach(n=>{ if(match(n.label)||match(n.short)) items.push({group:'เมนู', icon:navIconSvg(n.id), label:n.label, run:()=> n.href ? (closeCmdk(), window.open(n.href, '_blank', 'noopener')) : gotoView(n.id)}); });
   const actions = isAdminUser() ? [
     {label:'บันทึกวันลาใหม่', icon:navIconSvg('leaves'), run:()=>gotoView('leaves', ()=>openLeaveModal(null))},
     {label:'เพิ่มพนักงานใหม่', icon:navIconSvg('employees'), run:()=>gotoView('employees', ()=>openEmployeeModal(null))},

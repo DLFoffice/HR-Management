@@ -1,7 +1,12 @@
 /* =====================================================================
-   Apps Script backend ของระบบเงินสะสม/เลื่อนเงินเดือน
-   (ไฟล์นี้ถูกรวมกับ core.js เป็น payroll/Code.gs — ให้คัดลอก Code.gs ไปใช้)
+   ⚠️ ห้ามวางไฟล์นี้ใน Apps Script โดยตรง — ไฟล์นี้เป็นเพียงครึ่งหลัง
+   ให้ใช้ไฟล์ payroll/Code.gs (รวม core.js + ไฟล์นี้ไว้แล้ว ~700 บรรทัด)
    ===================================================================== */
+function assertComplete_(){
+  if(typeof PAYROLL_TABLES === 'undefined' || typeof pr_dailyJob !== 'function'){
+    throw new Error('วางโค้ดไม่ครบ: ให้ลบโค้ดทั้งหมดแล้ววางไฟล์ payroll/Code.gs ทั้งไฟล์ (บรรทัดแรกขึ้นต้นด้วย "Code.gs — ระบบเงินสะสม 5%")');
+  }
+}
 
 /* รหัสผ่าน Admin เริ่มต้น — ใช้ครั้งแรกเท่านั้น เข้าระบบแล้วให้เปลี่ยนในหน้า "ตั้งค่า" ทันที */
 var INITIAL_ADMIN_PASSWORD = 'ChangeMe@2569';
@@ -129,6 +134,7 @@ function doPost(e){
   var body = {};
   try{ body = JSON.parse(e.postData.contents || '{}'); }catch(err){ return json_({ error: 'รูปแบบคำขอไม่ถูกต้อง' }); }
   try{
+    assertComplete_();
     if(body.action === 'login'){
       if(!checkPassword_(body.password)){ Utilities.sleep(1200); return json_({ error: 'รหัสผ่านไม่ถูกต้อง' }); }
       return json_({ token: newToken_(), mustChange: PropertiesService.getScriptProperties().getProperty('ADMIN_IS_DEFAULT') === 'true' });
@@ -184,6 +190,7 @@ function handleAction_(db, b){
 
 /* ---------------------------------------------------------- Automation */
 function dailyPayrollJob(){
+  assertComplete_();
   var lock = LockService.getScriptLock(); lock.waitLock(60000);
   try{
     var db = SheetDB_();
@@ -217,6 +224,7 @@ function notify_(db, events){
 
 /* เรียกครั้งเดียวจากหน้าแก้ไขสคริปต์: สร้างชีต + ตั้งรหัสผ่านเริ่มต้น + ติดตั้งงานรายวัน */
 function setupPayroll(){
+  assertComplete_();
   var db = SheetDB_();
   Object.keys(PAYROLL_TABLES).forEach(function(n){ db.all(n); });
   ensurePassword_();
