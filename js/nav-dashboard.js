@@ -1,25 +1,25 @@
 /* ===== nav-dashboard.js ===== */
-/* label = full name (topbar, search); short = rail caption under the icon */
+/* label = menu text; group = section heading in the sidebar */
 const NAV_ADMIN = [
-  {id:'dashboard', label:'ภาพรวม', short:'หน้าแรก'},
-  {id:'employees', label:'ข้อมูลพนักงาน', short:'พนักงาน'},
-  {id:'orgchart', label:'โครงสร้างองค์กร', short:'โครงสร้าง'},
-  {id:'leaves', label:'บันทึกวันลา', short:'วันลา'},
-  {id:'loans', label:'บันทึกเงินกู้', short:'เงินกู้'},
-  {id:'welfare', label:'สวัสดิการ/ประกันสังคม', short:'สวัสดิการ'},
-  {id:'kpi', label:'ประเมินผล KPI', short:'KPI'},
-  {id:'training', label:'ฝึกอบรม/พัฒนาบุคลากร', short:'อบรม'},
-  {id:'reports', label:'รายงาน / PDF', short:'รายงาน'},
-  {id:'payroll', label:'เงินสะสม / เลื่อนเงินเดือน', short:'เงินเดือน', href:'payroll.html'},
-  {id:'settings', label:'ตั้งค่าเชื่อมต่อ', short:'ตั้งค่า', bottom:true}
+  {id:'dashboard', label:'ภาพรวม', short:'หน้าแรก', group:''},
+  {id:'employees', label:'ข้อมูลพนักงาน', short:'พนักงาน', group:'บุคลากร'},
+  {id:'orgchart', label:'โครงสร้างองค์กร', short:'โครงสร้าง', group:'บุคลากร'},
+  {id:'leaves', label:'บันทึกวันลา', short:'วันลา', group:'งานประจำวัน'},
+  {id:'loans', label:'เงินกู้', short:'เงินกู้', group:'งานประจำวัน'},
+  {id:'welfare', label:'สวัสดิการ / ประกันสังคม', short:'สวัสดิการ', group:'งานประจำวัน'},
+  {id:'kpi', label:'ประเมินผล KPI', short:'KPI', group:'พัฒนาบุคลากร'},
+  {id:'training', label:'ฝึกอบรม', short:'อบรม', group:'พัฒนาบุคลากร'},
+  {id:'reports', label:'รายงาน / PDF', short:'รายงาน', group:'รายงานและระบบ'},
+  {id:'payroll', label:'เงินสะสม / เงินเดือน', short:'เงินเดือน', group:'รายงานและระบบ', href:'payroll.html'},
+  {id:'settings', label:'ตั้งค่าระบบ', short:'ตั้งค่า', group:'รายงานและระบบ'}
 ];
 const NAV_SELF = [
-  {id:'myhome', label:'ข้อมูลของฉัน', short:'หน้าแรก'},
-  {id:'myleaves', label:'วันลาของฉัน', short:'วันลา'},
-  {id:'myloans', label:'เงินกู้ของฉัน', short:'เงินกู้'},
-  {id:'mywelfare', label:'สวัสดิการของฉัน', short:'สวัสดิการ'},
-  {id:'mykpi', label:'ผลประเมิน KPI', short:'KPI'},
-  {id:'mytraining', label:'ประวัติการอบรม', short:'อบรม'}
+  {id:'myhome', label:'หน้าแรกของฉัน', short:'หน้าแรก', group:''},
+  {id:'myleaves', label:'วันลาของฉัน', short:'วันลา', group:'คำขอของฉัน'},
+  {id:'myloans', label:'เงินกู้ของฉัน', short:'เงินกู้', group:'คำขอของฉัน'},
+  {id:'mywelfare', label:'สวัสดิการของฉัน', short:'สวัสดิการ', group:'คำขอของฉัน'},
+  {id:'mykpi', label:'ผลประเมิน KPI', short:'KPI', group:'ผลงานและการพัฒนา'},
+  {id:'mytraining', label:'ประวัติการอบรม', short:'อบรม', group:'ผลงานและการพัฒนา'}
 ];
 function currentNav(){ return isAdminUser() ? NAV_ADMIN : NAV_SELF; }
 
@@ -35,19 +35,26 @@ function navPendingCount(id){
 function renderNav(){
   const nav = document.getElementById('navlist');
   const list = currentNav();
-  nav.innerHTML = '<div class="nav-indicator"></div>' + list.map(n=>{
-    if(n.href) return `<a class="nav-link" href="${n.href}" target="_blank" rel="noopener" title="${esc(n.label)} (เปิดหน้าใหม่)">
-      <span class="nav-ic">${navIconSvg(n.id)}<span class="nav-ext">↗</span></span><span class="rail-label">${esc(n.short||n.label)}</span></a>`;
+  let lastGroup = null, html = '<div class="nav-indicator"></div>';
+  list.forEach(n=>{
+    if(n.group !== lastGroup){
+      if(n.group) html += `<div class="nav-group"><span>${esc(n.group)}</span></div>`;
+      lastGroup = n.group;
+    }
     const c = navPendingCount(n.id);
-    return `<button data-view="${n.id}" class="${state.currentView===n.id?'active':''}${n.bottom?' nav-bottom':''}" title="${esc(n.label)}">
-      <span class="nav-ic">${navIconSvg(n.id)}${c?`<span class="nav-count" title="รออนุมัติ">${c}</span>`:''}</span><span class="rail-label">${esc(n.short||n.label)}</span>
-    </button>`;
-  }).join('');
-  nav.querySelectorAll('button').forEach(b=>{
+    const inner = `<span class="nav-ic">${navIconSvg(n.id)}${c?`<i class="nav-dot"></i>`:''}</span>
+      <span class="nav-text">${esc(n.label)}</span>
+      ${n.href ? '<span class="nav-ext" aria-hidden="true">↗</span>' : c ? `<span class="nav-count" title="รออนุมัติ ${c} รายการ">${c}</span>` : ''}`;
+    html += n.href
+      ? `<a class="nav-item" href="${n.href}" target="_blank" rel="noopener" data-tip="${esc(n.label)}" title="${esc(n.label)} (เปิดแท็บใหม่)">${inner}</a>`
+      : `<button class="nav-item${state.currentView===n.id?' active':''}" data-view="${n.id}" data-tip="${esc(n.label)}${c?` · รออนุมัติ ${c}`:''}">${inner}</button>`;
+  });
+  nav.innerHTML = html;
+  nav.querySelectorAll('button[data-view]').forEach(b=>{
     b.addEventListener('click', ()=>{
       if(state.currentView === b.dataset.view){ closeNavDrawer(); return; }
       state.currentView = b.dataset.view;
-      nav.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
+      nav.querySelectorAll('button[data-view]').forEach(x=>x.classList.toggle('active', x===b));
       moveNavIndicator(false);
       closeNavDrawer();
       renderView();
@@ -88,8 +95,11 @@ function renderView(){
   if(nav) nav.querySelectorAll('button[data-view]').forEach(b=>{
     const c = navPendingCount(b.dataset.view);
     let badge = b.querySelector('.nav-count');
-    if(c && !badge){ badge = document.createElement('span'); badge.className='nav-count'; (b.querySelector('.nav-ic')||b).appendChild(badge); }
+    if(c && !badge){ badge = document.createElement('span'); badge.className='nav-count'; b.appendChild(badge); }
     if(badge){ if(c) badge.textContent = c; else badge.remove(); }
+    let dot = b.querySelector('.nav-dot');
+    if(c && !dot){ dot = document.createElement('i'); dot.className='nav-dot'; b.querySelector('.nav-ic')?.appendChild(dot); }
+    if(!c && dot) dot.remove();
   });
   if(viewChanged) playViewEnter(root); else window.scrollTo(0, scrollY);
   if(v==='dashboard'){

@@ -106,7 +106,7 @@ function renderUserBadge(){
     : `<span class="ua-init" style="width:${size}px;height:${size}px;">${initial}</span>`;
 
   const rail = document.getElementById('adminBadge');
-  if(rail) rail.innerHTML = `<button type="button" class="rail-avatar" title="${esc(name)}" data-open-user>${av(40)}</button>`;
+  if(rail) rail.innerHTML = `<button type="button" class="side-user" data-open-user title="${esc(name)}">${av(36)}<span class="side-text"><b>${esc(name)}</b><small>${roleLabel}</small></span></button>`;
 
   const chip = document.getElementById('userChip');
   if(chip) chip.innerHTML = `${av(36)}<span class="uc-text"><b>${esc(name)}</b><small>${roleLabel}</small></span>

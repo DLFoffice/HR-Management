@@ -35,7 +35,7 @@ function moveNavIndicator(instant){
   if(!nav) return;
   let ind = nav.querySelector('.nav-indicator');
   if(!ind){ ind = document.createElement('div'); ind.className='nav-indicator'; nav.prepend(ind); }
-  const active = nav.querySelector('button.active');
+  const active = nav.querySelector('.nav-item.active');
   if(!active){ ind.style.opacity = 0; return; }
   if(instant){ ind.style.transition = 'none'; }
   ind.style.transform = `translateY(${active.offsetTop}px)`;
@@ -58,6 +58,8 @@ function playViewEnter(root){
 
 /* ---------- Topbar breadcrumb ---------- */
 function updateTopbar(){
+  const sfy = document.getElementById('sideFY');
+  if(sfy && typeof fiscalYearBE==='function') sfy.textContent = 'ปีงบประมาณ ' + fiscalYearBE();
   const fy = document.getElementById('brandFY');
   if(fy && typeof fiscalYearBE==='function') fy.textContent = 'มูลนิธิการศึกษาทางไกลผ่านดาวเทียม · ปีงบประมาณ ' + fiscalYearBE();
   const foot = document.getElementById('loginArtFoot');
@@ -299,7 +301,16 @@ window.addEventListener('scroll', ()=>{
 }, {passive:true});
 window.addEventListener('resize', ()=> moveNavIndicator(true));
 
+function setNavCollapsed(on){
+  document.documentElement.classList.toggle('nav-collapsed', on);
+  try{ localStorage.setItem('hr_nav_collapsed', on ? '1' : '0'); }catch(e){}
+  const b = document.getElementById('btnCollapse');
+  if(b){ b.querySelector('.side-text').textContent = on ? 'ขยายเมนู' : 'ย่อเมนู'; b.title = on ? 'ขยายเมนู' : 'ย่อเมนู'; }
+  setTimeout(()=>moveNavIndicator(true), 320);
+}
 document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('btnCollapse')?.addEventListener('click', ()=> setNavCollapsed(!document.documentElement.classList.contains('nav-collapsed')));
+  if(document.documentElement.classList.contains('nav-collapsed')) setNavCollapsed(true);
   document.getElementById('btnMenu')?.addEventListener('click', ()=> document.body.classList.toggle('nav-open'));
   document.getElementById('navScrim')?.addEventListener('click', closeNavDrawer);
   applyChartTheme();
