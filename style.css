@@ -1421,3 +1421,4 @@ kbd{ font-family:inherit; font-size:11px; padding:2px 7px; border-radius:6px; bo
 .c2-ev.is-off{ opacity:.38; box-shadow:none; }
 .cal2-today{ white-space:nowrap; flex-shrink:0; }
 @media(max-width:900px){ .cal2 .lcal-more{ font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0; } }
+a.pop-item{ text-decoration:none; }

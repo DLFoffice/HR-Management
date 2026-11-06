@@ -118,7 +118,8 @@ function renderUserBadge(){
     ${emp ? `<button type="button" class="pop-item" data-goto="myhome">ข้อมูลของฉัน</button>` : ''}
     <button type="button" class="pop-item" data-pop-sync>ซิงค์ข้อมูลจาก Google Sheet</button>
     <button type="button" class="pop-item" data-theme-toggle>สลับโหมดสว่าง / มืด</button>
-    ${isAdminUser() ? `<button type="button" class="pop-item" data-goto="settings">ตั้งค่าระบบ</button>` : ''}
+    ${isAdminUser() ? `<button type="button" class="pop-item" data-goto="settings">ตั้งค่าระบบ</button>
+    <a class="pop-item" href="payroll.html" target="_blank" rel="noopener">ระบบเงินสะสม / เลื่อนเงินเดือน ↗</a>` : ''}
     <div class="pop-sep"></div>
     <button type="button" class="pop-item danger" id="btnLogoutUser">ออกจากระบบ</button>`;
   document.getElementById('btnLogoutUser')?.addEventListener('click', logout);
