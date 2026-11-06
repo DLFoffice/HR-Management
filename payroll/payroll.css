@@ -233,3 +233,4 @@ table.reg tfoot td{ border-top:2px solid var(--line-strong); background:var(--pa
 .tier-card.unset{ background:var(--paper-2) !important; color:var(--ink-soft) !important; border:1px dashed var(--line-strong); }
 .tier-card.unset span{ font-size:15px; color:var(--amber); }
 .tier-edit td:last-child{ width:40px; }
+.pr-alert.pr-alert-info{ background:var(--accent-soft); color:var(--accent-ink, var(--accent)); border-color:transparent; margin:10px 0 12px; }

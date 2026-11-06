@@ -533,7 +533,7 @@ function viewRounds(){
     body = `<div class="panel pr-empty">
       <div class="pe-ic">${svg(TABS[3].ic,30)}</div>
       <h3>${info.label} ยังไม่ได้สร้างร่าง</h3>
-      <p>ระบบจะสร้างร่างให้อัตโนมัติวันที่ <b>${thDate(pr_ymd(draftOn))}</b> (ก่อนวันเลื่อน ${c.leadDays} วัน) พร้อมดึงคะแนน KPI ช่วง ${thDate(info.evalStart)} – ${thDate(info.evalEnd)} จากระบบ HR
+      <p>ระบบจะสร้างร่างให้อัตโนมัติวันที่ <b>${thDate(pr_ymd(draftOn))}</b> (ก่อนวันเลื่อน ${c.leadDays} วัน) พร้อมดึงคะแนน KPI ช่วง ${thDate(info.evalStart)} – ${thDate(info.evalEnd)} จากระบบ HR (ถ้ามี) — ถ้าไม่มีคะแนน กรอกคะแนนหรือ % เองในตารางได้
       <br>หรือกดสร้างตอนนี้เพื่อดูตัวเลขล่วงหน้า (คะแนนจะอัปเดตเองทุกวันจนถึงวันเลื่อน)</p>
       <button class="btn btn-primary" data-create-round="${key}">สร้างร่างตอนนี้</button>
     </div>`;
@@ -563,6 +563,7 @@ function viewRounds(){
         <div class="pbar"><div style="width:${poolPct.toFixed(1)}%"></div></div>
       </div>
       <div class="pr-note">ช่วงประเมิน ${thDate(info.evalStart)} – ${thDate(info.evalEnd)} · ${draft ? 'แก้คะแนนหรือ % ในตารางได้เลย ระบบบันทึกทันที (รายการที่แก้เองจะไม่ถูกทับเมื่อดึงคะแนนใหม่)' : esc(round.note||'')}</div>
+      ${draft && S.noScore ? `<div class="pr-alert pr-alert-info">${svg('<circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 11v5"/>',18)}<span>มี <b>${S.noScore} คน</b> ที่ยังไม่มีคะแนน KPI — พิมพ์คะแนน (0–100) ในช่อง <b>"คะแนน"</b> ได้เลย ระบบจะเลือกระดับและ % ให้อัตโนมัติ หรือข้ามไปกรอก % เองในช่อง "%" ก็ได้</span></div>` : ''}
       <div class="table-wrap"><table class="reg pr-table pr-round-table">
         <thead><tr><th class="rownum">#</th><th>ชื่อ-นามสกุล</th><th class="num">เงินเดือนเดิม</th><th class="num">คะแนน KPI</th><th>ระดับ</th><th class="num">% เลื่อน</th><th class="num">เพิ่มขึ้น</th><th class="num">เงินเดือนใหม่</th><th>หมายเหตุ</th></tr></thead>
         <tbody>${items.map((it,i)=>{ const el = pr_bool(it.eligible); return `<tr class="${el?'':'is-inactive'}">
@@ -674,7 +675,7 @@ function viewSettings(){
       <div class="panel">
         <h2>${hIc('<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/>')}เชื่อมกับระบบ HR เดิม</h2>
         <div class="field"><label>ID ของ Google Sheet ระบบบริหารงานบุคคล</label><input id="cf_mainSheetId" value="${esc(c.mainSheetId||'')}" placeholder="ส่วนที่อยู่ระหว่าง /d/ และ /edit ใน URL ของ Sheet"></div>
-        <div class="pr-note">ใช้อ่านรายชื่อพนักงาน วันเริ่มงาน และคะแนน KPI (แท็บ employees และ kpi) — ระบบนี้อ่านอย่างเดียว ไม่เขียนกลับ</div>
+        <div class="pr-note">ไม่บังคับ — ใช้ดึงรายชื่อพนักงานและวันเริ่มงาน (แท็บ employees) ระบบนี้อ่านอย่างเดียว ไม่เขียนกลับ<br>คะแนน KPI: ถ้าแท็บ kpi ว่าง ให้กรอกคะแนนเองได้ในหน้า <b>รอบเลื่อนเงินเดือน</b> ช่อง "คะแนน" ของแต่ละคน</div>
         <div class="field"><label>ชื่อหน่วยงาน (หัวรายงาน)</label><input id="cf_orgName" value="${esc(c.orgName||'')}"></div>
         <div class="field"><label>URL โลโก้ (หัวรายงาน)</label><input id="cf_logoUrl" value="${esc(c.logoUrl||'')}"></div>
       </div>

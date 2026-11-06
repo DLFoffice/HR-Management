@@ -3,8 +3,16 @@
    ให้ใช้ไฟล์ payroll/Code.gs (รวม core.js + ไฟล์นี้ไว้แล้ว ~700 บรรทัด)
    ===================================================================== */
 function assertComplete_(){
-  if(typeof PAYROLL_TABLES === 'undefined' || typeof pr_dailyJob !== 'function'){
-    throw new Error('วางโค้ดไม่ครบ: ให้ลบโค้ดทั้งหมดแล้ววางไฟล์ payroll/Code.gs ทั้งไฟล์ (บรรทัดแรกขึ้นต้นด้วย "Code.gs — ระบบเงินสะสม 5%")');
+  var need = ['pr_config','pr_generateContributions','pr_fundBalances','pr_createRound','pr_refreshRound','pr_updateRoundItem',
+    'pr_roundSummary','pr_applyRound','pr_dailyJob','pr_saveStaff','pr_deleteStaff','pr_importStaff','pr_syncFromMain',
+    'pr_deleteRound','pr_snapshot','SheetDB_','handleAction_'];
+  var g = (function(){ return this; })() || {};
+  var missing = [];
+  if(typeof PAYROLL_TABLES === 'undefined') missing.push('PAYROLL_TABLES');
+  need.forEach(function(n){ if(typeof g[n] !== 'function') missing.push(n); });
+  if(missing.length){
+    throw new Error('โค้ดใน Apps Script ไม่ครบ (ขาด ' + missing.slice(0,4).join(', ') + (missing.length>4?' …':'') +
+      ') — ให้ลบไฟล์ .gs ทุกไฟล์ในโปรเจกต์ เหลือไฟล์เดียว วางไฟล์ payroll/Code.gs ทั้งไฟล์ (ราว 700 บรรทัด) กด Save แล้ว Deploy เป็นเวอร์ชันใหม่');
   }
 }
 
