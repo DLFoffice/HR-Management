@@ -14,7 +14,7 @@
    ===================================================================== */
 
 var PAYROLL_TABLES = {
-  staff:         ['id','code','name','position','department','hireDate','salary','status','fundOpening','fundOpeningDate','hrEmployeeId','note','updatedAt'],
+  staff:         ['id','code','name','position','department','hireDate','salary','status','fundOpening','fundOpeningDate','hrEmployeeId','note','updatedAt','photoUrl'],
   contributions: ['id','staffId','period','salary','rate','amount','createdAt','source'],
   rounds:        ['id','key','effectiveDate','evalStart','evalEnd','fiscalYear','half','status','createdAt','appliedAt','note'],
   roundItems:    ['id','roundId','staffId','name','oldSalary','score','tier','percent','raise','newSalary','eligible','reason','overridden'],
@@ -418,17 +418,18 @@ function pr_importStaff(db, rows){
 /* Copy names/positions/hire dates from the main HR system (never touches salary) */
 function pr_syncFromMain(db, employees){
   if(!employees || !employees.length) throw new Error('อ่านข้อมูลพนักงานจากระบบ HR ไม่ได้ — ตรวจสอบ ID ของ Google Sheet ระบบ HR ในหน้าตั้งค่า');
+  if(!employees.some(function(e){ return e.name; })) throw new Error('แท็บ employees ไม่มีคอลัมน์ "name" (ชื่อ-นามสกุล) — หัวตารางที่พบ: ' + Object.keys(employees[0]).join(', '));
   var staff = db.all('staff'), added = 0, updated = 0;
   employees.forEach(function(e){
     if(!e.name) return;
     var hit = staff.filter(function(s){ return (s.hrEmployeeId && s.hrEmployeeId === e.id) || (e.code && String(s.code) === String(e.code)) || String(s.name).replace(/\s+/g,'') === String(e.name).replace(/\s+/g,''); })[0];
     if(hit){
       hit.hrEmployeeId = e.id || hit.hrEmployeeId; hit.code = e.code || hit.code; hit.name = e.name; hit.position = e.position || hit.position;
-      hit.department = e.department || hit.department; hit.hireDate = e.hireDate || hit.hireDate; hit.updatedAt = pr_nowIso();
+      hit.department = e.department || hit.department; hit.hireDate = e.hireDate || hit.hireDate; hit.photoUrl = e.photoUrl || hit.photoUrl || ''; hit.updatedAt = pr_nowIso();
       db.update('staff', hit); updated++;
     } else {
       db.insert('staff', { id: pr_id('s'), code: e.code || '', name: e.name, position: e.position || '', department: e.department || '', hireDate: e.hireDate || '',
-                           salary: 0, status: 'active', fundOpening: 0, fundOpeningDate: '', hrEmployeeId: e.id || '', note: '', updatedAt: pr_nowIso() });
+                           salary: 0, status: 'active', fundOpening: 0, fundOpeningDate: '', hrEmployeeId: e.id || '', note: '', updatedAt: pr_nowIso(), photoUrl: e.photoUrl || '' });
       added++;
     }
   });

@@ -21,7 +21,7 @@
    ===================================================================== */
 
 var PAYROLL_TABLES = {
-  staff:         ['id','code','name','position','department','hireDate','salary','status','fundOpening','fundOpeningDate','hrEmployeeId','note','updatedAt'],
+  staff:         ['id','code','name','position','department','hireDate','salary','status','fundOpening','fundOpeningDate','hrEmployeeId','note','updatedAt','photoUrl'],
   contributions: ['id','staffId','period','salary','rate','amount','createdAt','source'],
   rounds:        ['id','key','effectiveDate','evalStart','evalEnd','fiscalYear','half','status','createdAt','appliedAt','note'],
   roundItems:    ['id','roundId','staffId','name','oldSalary','score','tier','percent','raise','newSalary','eligible','reason','overridden'],
@@ -425,17 +425,18 @@ function pr_importStaff(db, rows){
 /* Copy names/positions/hire dates from the main HR system (never touches salary) */
 function pr_syncFromMain(db, employees){
   if(!employees || !employees.length) throw new Error('อ่านข้อมูลพนักงานจากระบบ HR ไม่ได้ — ตรวจสอบ ID ของ Google Sheet ระบบ HR ในหน้าตั้งค่า');
+  if(!employees.some(function(e){ return e.name; })) throw new Error('แท็บ employees ไม่มีคอลัมน์ "name" (ชื่อ-นามสกุล) — หัวตารางที่พบ: ' + Object.keys(employees[0]).join(', '));
   var staff = db.all('staff'), added = 0, updated = 0;
   employees.forEach(function(e){
     if(!e.name) return;
     var hit = staff.filter(function(s){ return (s.hrEmployeeId && s.hrEmployeeId === e.id) || (e.code && String(s.code) === String(e.code)) || String(s.name).replace(/\s+/g,'') === String(e.name).replace(/\s+/g,''); })[0];
     if(hit){
       hit.hrEmployeeId = e.id || hit.hrEmployeeId; hit.code = e.code || hit.code; hit.name = e.name; hit.position = e.position || hit.position;
-      hit.department = e.department || hit.department; hit.hireDate = e.hireDate || hit.hireDate; hit.updatedAt = pr_nowIso();
+      hit.department = e.department || hit.department; hit.hireDate = e.hireDate || hit.hireDate; hit.photoUrl = e.photoUrl || hit.photoUrl || ''; hit.updatedAt = pr_nowIso();
       db.update('staff', hit); updated++;
     } else {
       db.insert('staff', { id: pr_id('s'), code: e.code || '', name: e.name, position: e.position || '', department: e.department || '', hireDate: e.hireDate || '',
-                           salary: 0, status: 'active', fundOpening: 0, fundOpeningDate: '', hrEmployeeId: e.id || '', note: '', updatedAt: pr_nowIso() });
+                           salary: 0, status: 'active', fundOpening: 0, fundOpeningDate: '', hrEmployeeId: e.id || '', note: '', updatedAt: pr_nowIso(), photoUrl: e.photoUrl || '' });
       added++;
     }
   });
@@ -500,6 +501,10 @@ function SheetDB_(){
       var cols = PAYROLL_TABLES[name];
       sh.getRange(1,1,1,cols.length).setValues([cols]).setFontWeight('bold').setBackground('#1E3A8A').setFontColor('#FFFFFF');
       sh.setFrozenRows(1);
+    } else {
+      // a column was added in a newer version → extend the header row
+      var want = PAYROLL_TABLES[name];
+      if(sh.getLastColumn() < want.length) sh.getRange(1,1,1,want.length).setValues([want]).setFontWeight('bold').setBackground('#1E3A8A').setFontColor('#FFFFFF');
     }
     return sh;
   }
@@ -561,18 +566,49 @@ function SheetDB_(){
 }
 
 /* Rows from a tab in the main HR Google Sheet (employees / kpi), as objects */
-function mainSheetRows_(sheetId, tab){
-  if(!sheetId) return [];
-  try{
-    var ss = SpreadsheetApp.openById(sheetId);
-    var sh = ss.getSheetByName(tab) || ss.getSheets().filter(function(s){ return s.getName().toLowerCase() === tab.toLowerCase(); })[0];
-    if(!sh || sh.getLastRow() < 2) return [];
-    var vals = sh.getDataRange().getValues();
-    var head = vals.shift().map(String);
-    return vals.map(function(r){
-      var o = {}; head.forEach(function(h,i){ o[h] = r[i] instanceof Date ? Utilities.formatDate(r[i], PR_TZ, 'yyyy-MM-dd') : r[i]; }); return o;
-    });
-  }catch(e){ return []; }
+function mainSheetId_(v){
+  var s = String(v || '').trim(), m = s.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  return m ? m[1] : s.replace(/[^a-zA-Z0-9_-]/g, '');
+}
+/* ชื่อแท็บในระบบ HR เดิมอาจเป็นภาษาไทย — ลองหลายชื่อ */
+var MAIN_TAB_ALIAS_ = {
+  employees: ['employees', 'ข้อมูลพนักงาน', 'พนักงาน', 'รายชื่อพนักงาน', 'ทะเบียนพนักงาน'],
+  kpi: ['kpi', 'ประเมินผลงาน KPI', 'ประเมินผล KPI', 'ประเมินผลงาน', 'KPI']
+};
+var MAIN_HEAD_ALIAS_ = {
+  'รหัส':'code', 'รหัสพนักงาน':'code', 'ชื่อ-นามสกุล':'name', 'ชื่อ–นามสกุล':'name', 'ชื่อนามสกุล':'name', 'ชื่อ':'name',
+  'ตำแหน่ง':'position', 'กลุ่มงาน':'department', 'ฝ่าย':'department', 'หน่วยงาน':'department',
+  'วันเริ่มงาน':'hireDate', 'วันที่เริ่มงาน':'hireDate', 'วันบรรจุ':'hireDate', 'รูป':'photoUrl', 'รูปภาพ':'photoUrl', 'photo':'photoUrl',
+  'ปี':'year', 'รอบ':'period', 'รอบประเมิน':'period', 'คะแนนรวม':'overallScore', 'คะแนน':'overallScore'
+};
+function findMainTab_(sheets, tab){
+  var norm = function(x){ return String(x).replace(/\s+/g,'').toLowerCase(); };
+  var names = (MAIN_TAB_ALIAS_[tab] || [tab]).map(norm);
+  for(var i = 0; i < names.length; i++){
+    var hit = sheets.filter(function(s){ return norm(s.getName()) === names[i]; })[0];
+    if(hit) return hit;
+  }
+  return null;
+}
+/* strict=true → throw a Thai message that says exactly what is wrong (used by the "ดึงรายชื่อ" button) */
+function mainSheetRows_(sheetId, tab, strict){
+  var id = mainSheetId_(sheetId);
+  function fail(msg){ if(strict) throw new Error(msg); return []; }
+  if(!id) return fail('ยังไม่ได้ใส่ ID ของ Google Sheet ระบบ HR — ไปที่หน้าตั้งค่า ใส่ ID แล้วกด "บันทึก" ก่อน');
+  var ss;
+  try{ ss = SpreadsheetApp.openById(id); }
+  catch(e){
+    return fail('เปิด Google Sheet ระบบ HR ไม่ได้ (' + e.message + ') — ตรวจว่า ID ถูกต้อง และบัญชี Google ที่ Deploy ระบบเงินเดือนมีสิทธิ์เปิด Sheet นี้ (ถ้าเพิ่งวางโค้ดใหม่ ให้กด Run ฟังก์ชัน setupPayroll 1 ครั้งเพื่ออนุญาตสิทธิ์)');
+  }
+  var sheets = ss.getSheets();
+  var sh = findMainTab_(sheets, tab);
+  if(!sh) return fail('ไม่พบแท็บ "' + (MAIN_TAB_ALIAS_[tab]||[tab]).slice(0,2).join('" หรือ "') + '" ใน Sheet ระบบ HR — แท็บที่มี: ' + sheets.map(function(s){ return s.getName(); }).join(', '));
+  if(sh.getLastRow() < 2) return fail('แท็บ "' + sh.getName() + '" ใน Sheet ระบบ HR ยังไม่มีข้อมูล (มีแต่หัวตาราง)');
+  var vals = sh.getDataRange().getValues();
+  var head = vals.shift().map(function(h){ var k = String(h).trim(); return MAIN_HEAD_ALIAS_[k.replace(/\s+/g,'')] || k; });
+  return vals.filter(function(r){ return r.join('') !== ''; }).map(function(r){
+    var o = {}; head.forEach(function(h,i){ if(h) o[h] = r[i] instanceof Date ? Utilities.formatDate(r[i], PR_TZ, 'yyyy-MM-dd') : r[i]; }); return o;
+  });
 }
 
 /* ---------------------------------------------------------- Auth */
@@ -648,7 +684,7 @@ function handleAction_(db, b){
     case 'saveStaff': return pr_saveStaff(db, b.staff);
     case 'deleteStaff': return pr_deleteStaff(db, b.id);
     case 'importStaff': return pr_importStaff(db, b.rows || []);
-    case 'syncFromMain': return pr_syncFromMain(db, mainSheetRows_(pr_config(db).mainSheetId, 'employees'));
+    case 'syncFromMain': return pr_syncFromMain(db, mainSheetRows_(pr_config(db).mainSheetId, 'employees', true));
     case 'setConfig': db.setConfig(b.config || {}); db.log('config', 'แก้ไขการตั้งค่า'); return null;
     case 'generateMonth': return { created: pr_generateContributions(db, b.period, 'manual').length };
     case 'deleteContribution': db.remove('contributions', b.id); db.log('fund', 'ลบรายการหักเงินสะสม 1 รายการ'); return null;

@@ -299,19 +299,27 @@ function viewStaff(){
       <thead><tr><th class="rownum">#</th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง / กลุ่มงาน</th><th>เริ่มงาน</th><th class="num">เงินเดือน</th><th class="num">หัก ${c.fundRate}%/เดือน</th><th class="num">ยอดเงินสะสม</th><th></th></tr></thead>
       <tbody>${list.length ? list.map((s,i)=>{
         const inactive = (s.status||'active')!=='active';
-        return `<tr class="${inactive?'is-inactive':''}">
+        return `<tr class="pr-row-link ${inactive?'is-inactive':''}" data-row-staff="${s.id}" tabindex="0" title="คลิกเพื่อดูรายละเอียด ${esc(s.name)}">
           <td class="rownum">${i+1}</td><td>${esc(s.code||'-')}</td>
-          <td><button class="link-btn" data-ledger="${s.id}">${esc(s.name)}</button>${inactive?' <span class="tag tag-red">พ้นสภาพ</span>':''}</td>
+          <td><div class="pr-person">${staffAvatar(s,40)}<div class="pr-person-text"><b>${esc(s.name)}</b>${inactive?' <span class="tag tag-red">พ้นสภาพ</span>':''}</div></div></td>
           <td><div>${esc(s.position||'-')}</div><small class="muted">${esc(s.department||'')}</small></td>
           <td>${thDate(s.hireDate)}</td>
           <td class="num">${n(s.salary) ? baht(s.salary) : '<span class="tag tag-amber">ยังไม่กรอก</span>'}</td>
           <td class="num">${inactive||!n(s.salary) ? '-' : baht(pr_fundAmount(s.salary,c))}</td>
           <td class="num"><b>${baht(bal[s.id]||0)}</b></td>
-          <td class="pr-actions"><button class="btn btn-sm" data-edit-staff="${s.id}">แก้ไข</button><button class="btn btn-sm" data-ledger="${s.id}">ทะเบียน</button></td>
+          <td class="pr-actions"><button class="btn btn-sm" data-edit-staff="${s.id}">แก้ไข</button><span class="pr-chev" aria-hidden="true">›</span></td>
         </tr>`;}).join('') : `<tr class="empty-row"><td colspan="9">${q?'ไม่พบพนักงานที่ค้นหา':'ยังไม่มีพนักงาน — กด "ดึงรายชื่อจากระบบ HR" หรือ "นำเข้า Excel"'}</td></tr>`}</tbody>
       <tfoot><tr><td colspan="5" class="pr-foot-label">รวม (เฉพาะผู้ที่ยังทำงาน ${act.length} คน)</td><td class="num"><b>${baht(tot)}</b></td><td class="num"><b>${baht(totFund)}</b></td><td class="num"><b>${baht(totBal)}</b></td><td></td></tr></tfoot>
     </table></div>
   </div>`;
+}
+
+/* photo avatar (falls back to the first letter of the name) */
+function staffInitial(s){ return String((s&&s.name)||'?').replace(/^(นาย|นางสาว|นาง|ดร\.|ว่าที่ร้อยตรี)\s*/,'').trim().slice(0,1) || '?'; }
+function staffAvatar(s, size, cls){
+  const z = size || 40, ini = esc(staffInitial(s));
+  const url = s && String(s.photoUrl||'').trim();
+  return `<span class="pr-ava ${cls||''}" style="width:${z}px;height:${z}px;font-size:${Math.round(z*.4)}px">${url ? `<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}<i>${ini}</i></span>`;
 }
 
 function openStaffModal(id){
@@ -322,6 +330,7 @@ function openStaffModal(id){
       <div class="field"><label>รหัสพนักงาน</label><input id="sf_code" value="${esc(s.code||'')}"></div>
       <div class="field"><label>สถานะ</label><select id="sf_status"><option value="active" ${s.status!=='resigned'?'selected':''}>ทำงานอยู่</option><option value="resigned" ${s.status==='resigned'?'selected':''}>พ้นสภาพ (หยุดหักเงินสะสม)</option></select></div>
       <div class="field full"><label>ชื่อ-นามสกุล *</label><input id="sf_name" value="${esc(s.name||'')}"></div>
+      <div class="field full"><label>ลิงก์รูปพนักงาน (URL)</label><div class="pr-photo-field"><span id="sf_photoPrev">${staffAvatar(s,44)}</span><input id="sf_photoUrl" placeholder="https://… (ดึงจากระบบ HR อัตโนมัติ ถ้ามีรูปในระบบ HR)" value="${esc(s.photoUrl||'')}"></div></div>
       <div class="field"><label>ตำแหน่ง</label><input id="sf_position" value="${esc(s.position||'')}"></div>
       <div class="field"><label>กลุ่มงาน</label><input id="sf_department" value="${esc(s.department||'')}"></div>
       <div class="field"><label>วันเริ่มงาน</label><input type="date" id="sf_hireDate" value="${esc(s.hireDate||'')}"></div>
@@ -337,12 +346,13 @@ function openStaffModal(id){
     </div>`, 640);
   const hint = ()=>{ const v = n(document.getElementById('sf_salary').value); document.getElementById('sf_fundHint').textContent = v ? `หักเงินสะสม ${cfg().fundRate}% = ${baht(pr_fundAmount(v,cfg()))} บาท/เดือน` : ''; };
   document.getElementById('sf_salary').addEventListener('input', hint); hint();
+  document.getElementById('sf_photoUrl').addEventListener('input', e=>{ document.getElementById('sf_photoPrev').innerHTML = staffAvatar({ name: document.getElementById('sf_name').value, photoUrl: e.target.value.trim() }, 44); });
   document.getElementById('sf_save').addEventListener('click', async ()=>{
     const v = k => document.getElementById('sf_'+k).value.trim();
     const err = document.getElementById('sf_err');
     if(!v('name')){ err.textContent = 'กรุณากรอกชื่อ-นามสกุล'; err.style.display='block'; return; }
     if(v('salary')==='' || n(v('salary')) < 0){ err.textContent = 'กรุณากรอกเงินเดือนให้ถูกต้อง'; err.style.display='block'; return; }
-    const data = Object.assign({}, id ? s : {}, { code:v('code'), name:v('name'), position:v('position'), department:v('department'), hireDate:v('hireDate'),
+    const data = Object.assign({}, id ? s : {}, { code:v('code'), name:v('name'), position:v('position'), department:v('department'), hireDate:v('hireDate'), photoUrl:v('photoUrl'),
       salary:n(v('salary')), fundOpening:n(v('fundOpening')), fundOpeningDate:v('fundOpeningDate'), status:v('status'), changeNote: id ? v('note') : '' });
     closeModal();
     await act('saveStaff', { staff: data }, 'บันทึกข้อมูลพนักงานแล้ว');
@@ -359,8 +369,19 @@ function openLedgerModal(id){
   const s = L.staff; if(!s) return;
   const hist = (PR.data.salaryHistory||[]).filter(h=>h.staffId===id).sort((a,b)=>a.effectiveDate<b.effectiveDate?1:-1);
   openModal(`
-    <div class="modal-head-person"><div class="pr-avatar">${esc(String(s.name).replace(/^(นาย|นางสาว|นาง)/,'').trim().slice(0,1))}</div>
-      <div><h3>${esc(s.name)}</h3><div class="muted">${esc(s.position||'')} · เงินเดือน ${baht(s.salary)} บาท</div></div></div>
+    <div class="pr-profile">
+      ${staffAvatar(s,84,'pr-ava-lg')}
+      <div class="pr-profile-text">
+        <h3>${esc(s.name)} ${(s.status||'active')!=='active'?'<span class="tag tag-red">พ้นสภาพ</span>':''}</h3>
+        <div class="muted">${esc(s.position||'-')}${s.department?' · '+esc(s.department):''}</div>
+        <div class="pr-profile-meta">
+          <span><small>รหัส</small><b>${esc(s.code||'-')}</b></span>
+          <span><small>เริ่มงาน</small><b>${thDate(s.hireDate)}</b></span>
+          <span><small>เงินเดือน</small><b>${n(s.salary)?baht(s.salary):'ยังไม่กรอก'}</b></span>
+          <span><small>หัก ${cfg().fundRate}%/เดือน</small><b>${n(s.salary)?baht(pr_fundAmount(s.salary,cfg())):'-'}</b></span>
+        </div>
+      </div>
+    </div>
     <div class="pr-ledger-stats">
       <div><small>ยอดเงินสะสมทั้งหมด</small><b>${baht(L.balance)}</b></div>
       <div><small>หักจากเงินเดือนในระบบ</small><b>${baht(L.contributed)}</b></div>
@@ -467,7 +488,7 @@ function viewFund(){
     <div class="table-wrap"><table class="reg pr-table">
       <thead><tr><th class="rownum">#</th><th>ชื่อ-นามสกุล</th><th>กลุ่มงาน</th><th class="num">เงินเดือน</th><th class="num">อัตรา</th><th class="num">หักเงินสะสม</th><th class="num">ยอดสะสม ณ สิ้นเดือน</th><th></th></tr></thead>
       <tbody>${rows.length ? rows.map((r,i)=>`<tr>
-        <td class="rownum">${i+1}</td><td><button class="link-btn" data-ledger="${r.x.staffId}">${esc(r.s.name)}</button></td><td class="muted">${esc(r.s.department||'')}</td>
+        <td class="rownum">${i+1}</td><td><button class="link-btn pr-person" data-ledger="${r.x.staffId}">${staffAvatar(r.s,30)}<span>${esc(r.s.name)}</span></button></td><td class="muted">${esc(r.s.department||'')}</td>
         <td class="num">${baht(r.x.salary)}</td><td class="num">${n(r.x.rate)}%</td><td class="num"><b>${baht(r.x.amount)}</b></td><td class="num">${baht(balAt(r.x.staffId))}</td>
         <td class="pr-actions"><button class="icon-del" title="ลบรายการนี้" data-del-contrib="${r.x.id}">${svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',15)}</button></td></tr>`).join('')
         : `<tr class="empty-row"><td colspan="8">${due ? `ยังไม่ถึงวันหัก — ระบบจะสร้างรายการให้อัตโนมัติวันที่ ${c.deductionDay} ${ymLabel(ym)}` : 'ยังไม่มีรายการหักในเดือนนี้'}</td></tr>`}</tbody>
@@ -567,7 +588,7 @@ function viewRounds(){
       <div class="table-wrap"><table class="reg pr-table pr-round-table">
         <thead><tr><th class="rownum">#</th><th>ชื่อ-นามสกุล</th><th class="num">เงินเดือนเดิม</th><th class="num">คะแนน KPI</th><th>ระดับ</th><th class="num">% เลื่อน</th><th class="num">เพิ่มขึ้น</th><th class="num">เงินเดือนใหม่</th><th>หมายเหตุ</th></tr></thead>
         <tbody>${items.map((it,i)=>{ const el = pr_bool(it.eligible); return `<tr class="${el?'':'is-inactive'}">
-          <td class="rownum">${i+1}</td><td><button class="link-btn" data-ledger="${it.staffId}">${esc(it.name)}</button></td>
+          <td class="rownum">${i+1}</td><td><button class="link-btn pr-person" data-ledger="${it.staffId}">${staffAvatar(staffById(it.staffId)||{name:it.name},30)}<span>${esc(it.name)}</span></button></td>
           <td class="num">${baht(it.oldSalary)}</td>
           <td class="num">${draft && el ? `<input class="cell-in" type="number" min="0" max="100" step="0.1" value="${it.score===''?'':esc(it.score)}" data-item="${it.id}" data-field="score" placeholder="-">` : (it.score===''?'-':esc(it.score))}</td>
           <td>${it.tier ? `<span class="tier t-${tierClass(it.tier)}">${esc(it.tier)}</span>` : '<span class="muted">-</span>'}</td>
@@ -754,6 +775,10 @@ function bindView(){
     const r = await act('runDailyJob', {}, res => { const ev = (res.result && res.result.events) || []; return ev.length ? 'งานอัตโนมัติ: ' + ev.map(e=>({fund:'หักเงินสะสม',draft:'สร้างร่างรอบเลื่อน',applied:'ปรับเงินเดือน',waiting:'รอกำหนด % ให้ครบ'})[e.type]).join(', ') : 'งานอัตโนมัติทำงานแล้ว — วันนี้ไม่มีงานที่ต้องทำ'; });
   });
   on('[data-ledger]', el => openLedgerModal(el.dataset.ledger));
+  v.querySelectorAll('[data-row-staff]').forEach(tr => {
+    tr.addEventListener('click', e => { if(e.target.closest('button, a, input, select')) return; openLedgerModal(tr.dataset.rowStaff); });
+    tr.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target === tr) openLedgerModal(tr.dataset.rowStaff); });
+  });
   on('[data-edit-staff]', el => openStaffModal(el.dataset.editStaff));
   on('[data-add-staff]', () => openStaffModal(null));
   on('[data-import]', pickImport);
