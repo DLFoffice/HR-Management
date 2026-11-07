@@ -261,3 +261,16 @@ button.pr-person{ gap:10px; }
 .pr-photo-field{ display:flex; align-items:center; gap:10px; }
 .pr-photo-field input{ flex:1; }
 @media(max-width:640px){ .pr-profile{ flex-direction:column; text-align:center; } .pr-profile-meta{ justify-content:center; } }
+
+/* ---------- editable auto-% tiers ---------- */
+.pr-tier-panel .tier-card{ cursor:text; }
+.tier-in{ display:inline-flex; align-items:center; gap:4px; margin-top:6px; }
+.tier-in input{ width:72px; height:36px; padding:0 10px; border:1px solid var(--line); border-radius:10px; background:var(--paper);
+  font:inherit; font-size:17px; font-weight:700; color:var(--ink); text-align:right; }
+.tier-in input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.tier-in em{ font-style:normal; font-weight:700; color:var(--ink-soft); }
+.tier-card.unset .tier-in input{ border-style:dashed; border-color:#F59E0B; background:#FFFBEB; }
+.pr-tier-panel.is-unset{ box-shadow:0 0 0 2px #FCD34D, var(--shadow, none); }
+.pr-note.warn{ color:#B45309; font-weight:500; }
+.cell-in.is-auto{ background:#ECFDF5; border-color:#A7F3D0; color:#047857; font-weight:700; }
+:root[data-theme="dark"] .cell-in.is-auto{ background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.35); color:#6EE7B7; }

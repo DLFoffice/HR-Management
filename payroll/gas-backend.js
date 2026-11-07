@@ -217,7 +217,7 @@ function handleAction_(db, b){
     case 'deleteStaff': return pr_deleteStaff(db, b.id);
     case 'importStaff': return pr_importStaff(db, b.rows || []);
     case 'syncFromMain': return pr_syncFromMain(db, mainSheetRows_(pr_config(db).mainSheetId, 'employees', true));
-    case 'setConfig': db.setConfig(b.config || {}); db.log('config', 'แก้ไขการตั้งค่า'); return null;
+    case 'setConfig': db.setConfig(b.config || {}); db.log('config', 'แก้ไขการตั้งค่า'); return { refreshed: pr_refreshDraftRounds(db) };
     case 'generateMonth': return { created: pr_generateContributions(db, b.period, 'manual').length };
     case 'deleteContribution': db.remove('contributions', b.id); db.log('fund', 'ลบรายการหักเงินสะสม 1 รายการ'); return null;
     case 'createRound': return { round: pr_createRound(db, b.key) };

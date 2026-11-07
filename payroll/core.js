@@ -17,7 +17,7 @@ var PAYROLL_TABLES = {
   staff:         ['id','code','name','position','department','hireDate','salary','status','fundOpening','fundOpeningDate','hrEmployeeId','note','updatedAt','photoUrl'],
   contributions: ['id','staffId','period','salary','rate','amount','createdAt','source'],
   rounds:        ['id','key','effectiveDate','evalStart','evalEnd','fiscalYear','half','status','createdAt','appliedAt','note'],
-  roundItems:    ['id','roundId','staffId','name','oldSalary','score','tier','percent','raise','newSalary','eligible','reason','overridden'],
+  roundItems:    ['id','roundId','staffId','name','oldSalary','score','tier','percent','raise','newSalary','eligible','reason','overridden','percentManual'],
   salaryHistory: ['id','staffId','effectiveDate','oldSalary','newSalary','percent','roundKey','note','createdAt'],
   logs:          ['id','time','action','detail']
 };
@@ -218,16 +218,20 @@ function pr_buildItem(db, round, staff, cfg, kpis, info, keep){
   var score = keep && pr_bool(keep.overridden) ? (keep.score === '' ? null : keep.score) : pr_kpiScore(kpis, staff, info);
   var tier = pr_tierFor(score, cfg);
   var manual = keep && pr_bool(keep.overridden);
+  // % typed by hand wins; otherwise % comes from the tier automatically (older rows without the flag: a stored % counts as typed)
+  var pctManual = !!(manual && !pr_blank(keep.percent) && (pr_blank(keep.percentManual) ? true : pr_bool(keep.percentManual)));
+  var tierPct = tier && !pr_blank(tier.percent) ? pr_num(tier.percent) : '';
+  if(manual && pr_blank(keep.percentManual) && tierPct !== '' && pr_num(keep.percent) === tierPct) pctManual = false;
   // '' = % not decided yet (tier has no % or no score) — never treated as 0%
-  var percent = !el.ok ? 0 : manual ? (pr_blank(keep.percent) ? '' : pr_num(keep.percent)) : (tier && !pr_blank(tier.percent) ? pr_num(tier.percent) : '');
+  var percent = !el.ok ? 0 : pctManual ? pr_num(keep.percent) : tierPct;
   var oldSalary = pr_num(staff.salary);
   var raise = el.ok && percent !== '' ? pr_raiseAmount(oldSalary, percent, cfg) : 0;
-  var reason = !el.ok ? el.reason : pr_itemReason(score === null ? '' : score, tier, percent, manual);
+  var reason = !el.ok ? el.reason : pr_itemReason(score === null ? '' : score, tier, percent, pctManual);
   return {
     id: keep ? keep.id : pr_id('ri'), roundId: round.id, staffId: staff.id, name: staff.name,
     oldSalary: oldSalary, score: score === null ? '' : score, tier: tier ? tier.label : '',
     percent: percent, raise: raise, newSalary: pr_round2(oldSalary + raise),
-    eligible: el.ok, reason: reason, overridden: !!manual
+    eligible: el.ok, reason: reason, overridden: !!manual, percentManual: pctManual
   };
 }
 
@@ -260,6 +264,12 @@ function pr_refreshRound(db, roundId){
 }
 
 /* Admin edits one person's score or percent in a draft round */
+/* after the % criteria change, every draft round is recalculated right away */
+function pr_refreshDraftRounds(db){
+  var n = 0;
+  db.all('rounds').forEach(function(r){ if(r.status === 'draft'){ pr_refreshRound(db, r.id); n++; } });
+  return n;
+}
 function pr_updateRoundItem(db, itemId, patch){
   var item = db.all('roundItems').filter(function(i){ return i.id === itemId; })[0];
   if(!item) throw new Error('ไม่พบรายการ');
@@ -271,16 +281,22 @@ function pr_updateRoundItem(db, itemId, patch){
     item.score = patch.score === '' ? '' : pr_num(patch.score);
     var t = pr_tierFor(item.score === '' ? null : item.score, cfg);
     item.tier = t ? t.label : '';
-    if(patch.percent === undefined) item.percent = pr_bool(item.eligible) && t && !pr_blank(t.percent) ? pr_num(t.percent) : (pr_bool(item.eligible) ? '' : 0);
+    if(patch.percent === undefined && !pr_bool(item.percentManual)) item.percent = pr_bool(item.eligible) && t && !pr_blank(t.percent) ? pr_num(t.percent) : (pr_bool(item.eligible) ? '' : 0);
   }
-  if(patch.percent !== undefined) item.percent = pr_blank(patch.percent) ? '' : pr_num(patch.percent);
+  if(patch.percent !== undefined){
+    // empty % = go back to the automatic % of the tier
+    item.percentManual = !pr_blank(patch.percent);
+    if(item.percentManual) item.percent = pr_num(patch.percent);
+    else { var tp = pr_tierFor(item.score === '' ? null : item.score, cfg); item.percent = pr_bool(item.eligible) && tp && !pr_blank(tp.percent) ? pr_num(tp.percent) : (pr_bool(item.eligible) ? '' : 0); }
+  }
+  if(pr_blank(item.percentManual)) item.percentManual = false;
   if(patch.eligible !== undefined) item.eligible = pr_bool(patch.eligible);
   item.overridden = true;
   item.oldSalary = pr_num(staff.salary);
   item.raise = pr_bool(item.eligible) && !pr_blank(item.percent) ? pr_raiseAmount(item.oldSalary, item.percent, cfg) : 0;
   item.newSalary = pr_round2(item.oldSalary + item.raise);
   var tt = pr_tierFor(item.score === '' ? null : item.score, cfg);
-  item.reason = pr_bool(item.eligible) ? pr_itemReason(item.score, tt, pr_blank(item.percent) ? '' : item.percent, true) : (item.reason || 'ไม่มีสิทธิ์รอบนี้');
+  item.reason = pr_bool(item.eligible) ? pr_itemReason(item.score, tt, pr_blank(item.percent) ? '' : item.percent, pr_bool(item.percentManual)) : (item.reason || 'ไม่มีสิทธิ์รอบนี้');
   db.update('roundItems', item);
   return item;
 }
@@ -463,7 +479,7 @@ function pr_snapshot(db){
 }
 
 if(typeof module !== 'undefined') module.exports = {
-  PAYROLL_TABLES: PAYROLL_TABLES, PAYROLL_DEFAULTS: PAYROLL_DEFAULTS, pr_config: pr_config, pr_generateContributions: pr_generateContributions,
+  PAYROLL_TABLES: PAYROLL_TABLES, PAYROLL_DEFAULTS: PAYROLL_DEFAULTS, pr_config: pr_config, pr_refreshDraftRounds: pr_refreshDraftRounds, pr_tierFor: pr_tierFor, pr_generateContributions: pr_generateContributions,
   pr_ledger: pr_ledger, pr_fundBalances: pr_fundBalances, pr_roundInfo: pr_roundInfo, pr_nextRoundKey: pr_nextRoundKey,
   pr_createRound: pr_createRound, pr_refreshRound: pr_refreshRound, pr_updateRoundItem: pr_updateRoundItem, pr_roundSummary: pr_roundSummary,
   pr_applyRound: pr_applyRound, pr_dailyJob: pr_dailyJob, pr_snapshot: pr_snapshot, pr_kpiScore: pr_kpiScore, pr_isEligible: pr_isEligible,

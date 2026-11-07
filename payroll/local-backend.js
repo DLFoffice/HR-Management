@@ -96,7 +96,7 @@ const LocalPayroll = (function(){
           const emps = (typeof SEED_DATA !== 'undefined' ? SEED_DATA.employees : []).map(e => ({ id: e.id, code: e.code, name: e.name, position: e.position, department: e.department, hireDate: e.hireDate }));
           result = pr_syncFromMain(D, emps); break;
         }
-        case 'setConfig': D.setConfig(body.config || {}); D.log('config', 'แก้ไขการตั้งค่า'); break;
+        case 'setConfig': D.setConfig(body.config || {}); D.log('config', 'แก้ไขการตั้งค่า'); result = { refreshed: pr_refreshDraftRounds(D) }; break;
         case 'generateMonth': result = { created: pr_generateContributions(D, body.period, 'manual').length }; break;
         case 'deleteContribution': D.remove('contributions', body.id); D.log('fund', 'ลบรายการหักเงินสะสม 1 รายการ'); break;
         case 'createRound': result = { round: pr_createRound(D, body.key) }; break;

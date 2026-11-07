@@ -592,10 +592,10 @@ function viewRounds(){
           <td class="num">${baht(it.oldSalary)}</td>
           <td class="num">${draft && el ? `<input class="cell-in" type="number" min="0" max="100" step="0.1" value="${it.score===''?'':esc(it.score)}" data-item="${it.id}" data-field="score" placeholder="-">` : (it.score===''?'-':esc(it.score))}</td>
           <td>${it.tier ? `<span class="tier t-${tierClass(it.tier)}">${esc(it.tier)}</span>` : '<span class="muted">-</span>'}</td>
-          <td class="num">${draft && el ? `<input class="cell-in${pr_blank(it.percent)?' is-empty':''}" type="number" min="0" max="15" step="0.5" value="${esc(it.percent)}" data-item="${it.id}" data-field="percent" placeholder="กรอก %">` : (pr_blank(it.percent) ? '-' : esc(it.percent)+'%')}</td>
+          <td class="num">${draft && el ? `<input class="cell-in${pr_blank(it.percent)?' is-empty':''}${pr_bool(it.percentManual)?'':' is-auto'}" type="number" min="0" max="15" step="0.5" value="${esc(it.percent)}" data-item="${it.id}" data-field="percent" placeholder="${it.tier?'รอเกณฑ์':'-'}" title="${pr_bool(it.percentManual)?'กำหนดเอง — ลบตัวเลขออกเพื่อกลับไปใช้ % อัตโนมัติ':'คำนวณอัตโนมัติจากระดับ — พิมพ์ทับได้ถ้าต้องการกำหนดเอง'}">` : (pr_blank(it.percent) ? '-' : esc(it.percent)+'%')}</td>
           <td class="num">${n(it.raise) ? '+'+baht(it.raise) : '-'}</td>
           <td class="num"><b>${baht(it.newSalary)}</b></td>
-          <td class="pr-reason">${pr_bool(it.overridden)?'<span class="tag tag-navy">แก้เอง</span> ':''}${it.reason?`<span class="${el?'warn':'muted'}">${esc(it.reason)}</span>`:''}</td>
+          <td class="pr-reason">${pr_bool(it.percentManual)?'<span class="tag tag-navy">% กำหนดเอง</span> ':(!pr_blank(it.percent)&&it.tier&&el?'<span class="tag tag-green">อัตโนมัติ</span> ':'')}${it.reason?`<span class="${el?'warn':'muted'}">${esc(it.reason)}</span>`:''}</td>
         </tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="2" class="pr-foot-label">รวม</td><td class="num"><b>${baht(items.reduce((a,i)=>a+n(i.oldSalary),0))}</b></td><td colspan="3"></td><td class="num"><b>+${baht(S.totalRaise)}</b></td><td class="num"><b>${baht(items.reduce((a,i)=>a+n(i.newSalary),0))}</b></td><td></td></tr></tfoot>
       </table></div>
@@ -606,13 +606,30 @@ function viewRounds(){
     <div><h1>เลื่อนเงินเดือน</h1><div class="sub">ปีละ 2 รอบ — 1 เม.ย. (ประเมิน ต.ค.–มี.ค.) และ 1 ต.ค. (ประเมิน เม.ย.–ก.ย.) ต้องทำงานครบ ${c.eligibilityMonths} เดือน ณ วันที่เลื่อน</div></div>
   </div>
   <div class="round-chips">${chips}</div>
-    ${tiersUnset() ? `<div class="pr-alert">${svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>',18)}<span>ยังไม่ได้กำหนด % ของแต่ละระดับ — ระบบจะยังไม่คำนวณเงินเดือนใหม่และไม่ปรับอัตโนมัติ จนกว่าจะกรอก % ที่หน้าตั้งค่า หรือกรอก % รายคนในตาราง</span><button class="btn btn-sm btn-primary" data-goto="settings">กรอกเกณฑ์ %</button></div>` : ''}
-  ${body}
-  <div class="panel">
-    <h2>${hIc('<path d="M4 6h16M4 12h10M4 18h6"/>')}เกณฑ์ % ตามผลประเมิน <span class="h-count">แก้ไขได้ที่หน้าตั้งค่า</span></h2>
-    <div class="tier-grid">${c.tiers.map(t=>`<div class="tier-card t-${tierClass(t.label)}${pr_blank(t.percent)?' unset':''}"><small>คะแนน ${t.min} ขึ้นไป</small><b>${esc(t.label)}</b><span>${pr_blank(t.percent) ? 'ยังไม่กำหนด' : t.percent+'%'}</span></div>`).join('')}</div>
-    <div class="pr-note">ปัดเงินที่เพิ่มขึ้น${c.raiseRounding==='ceil10'?'ขึ้นเป็นหลักสิบบาท (แบบราชการ)':'เป็นทศนิยม 2 ตำแหน่ง'} · ${c.autoApply?'ปรับเงินเดือนอัตโนมัติเมื่อถึงวันเลื่อนและทุกคนมี % ครบ':'ต้องกดอนุมัติเอง'}</div>
-  </div>`;
+  <div class="panel pr-tier-panel ${tiersUnset()?'is-unset':''}">
+    <div class="pr-panel-head">
+      <h2>${hIc('<path d="M4 6h16M4 12h10M4 18h6"/>')}เกณฑ์ % เลื่อนเงินเดือนอัตโนมัติ <span class="h-count">คะแนน KPI → ระดับ → % ให้ทุกคนทันที</span></h2>
+      <div class="pr-panel-tools">
+        <button class="btn btn-sm" data-tier-preset title="ค่าแนะนำ ดีเยี่ยม 5% · ดีมาก 4% · ดี 3% · พอใช้ 2% · ควรปรับปรุง 0% (แก้ได้)">ใช้ค่าแนะนำ</button>
+        <button class="btn btn-sm btn-primary" data-tier-save>บันทึกและคำนวณใหม่</button>
+      </div>
+    </div>
+    ${tiersUnset() ? `<div class="pr-note warn">ยังไม่ได้กรอก % — กรอกในกล่องด้านล่าง (หรือกด "ใช้ค่าแนะนำ") แล้วกด "บันทึกและคำนวณใหม่" ระบบจะใส่ % ให้ทุกคนที่มีคะแนนอัตโนมัติ</div>` : ''}
+    <div class="tier-grid">${c.tiers.map((t,i)=>`<label class="tier-card t-${tierClass(t.label)}${pr_blank(t.percent)?' unset':''}"><small>คะแนน ${t.min} ขึ้นไป</small><b>${esc(t.label)}</b>
+      <span class="tier-in"><input type="number" min="0" max="15" step="0.5" data-tier-idx="${i}" value="${pr_blank(t.percent)?'':t.percent}" placeholder="-"><em>%</em></span></label>`).join('')}</div>
+    <div class="pr-note">ปัดเงินที่เพิ่มขึ้น${c.raiseRounding==='ceil10'?'ขึ้นเป็นหลักสิบบาท (แบบราชการ)':'เป็นทศนิยม 2 ตำแหน่ง'} · ${c.autoApply?'ปรับเงินเดือนอัตโนมัติเมื่อถึงวันเลื่อนและทุกคนมี % ครบ':'ต้องกดอนุมัติเอง'} · ช่วงคะแนนและชื่อระดับแก้ได้ที่หน้าตั้งค่า</div>
+  </div>
+  ${body}`;
+}
+const TIER_PRESET = [5, 4, 3, 2, 0];
+async function saveTierPercents(){
+  const tiers = cfg().tiers.map((t,i)=>{ const el = document.querySelector(`[data-tier-idx="${i}"]`); const v = el ? el.value.trim() : '';
+    return { min: t.min, label: t.label, percent: v === '' ? '' : n(v) }; });
+  if(tiers.some(t => t.percent !== '' && (t.percent < 0 || t.percent > 15))){ toast('% ต้องอยู่ระหว่าง 0–15'); return; }
+  await act('setConfig', { config: { tiers: JSON.stringify(tiers) } }, res => {
+    const k = res && res.result && res.result.refreshed;
+    return 'บันทึกเกณฑ์แล้ว' + (k ? ' — คำนวณ % ให้ทุกคนใหม่แล้ว' : '');
+  });
 }
 function tiersUnset(){ return cfg().tiers.every(t=>pr_blank(t.percent)); }
 function tierClass(label){ return ({'ดีเยี่ยม':'a','ดีเด่น':'a','ดีมาก':'b','ดี':'c','พอใช้':'d'})[label] || 'e'; }
@@ -775,6 +792,8 @@ function bindView(){
     const r = await act('runDailyJob', {}, res => { const ev = (res.result && res.result.events) || []; return ev.length ? 'งานอัตโนมัติ: ' + ev.map(e=>({fund:'หักเงินสะสม',draft:'สร้างร่างรอบเลื่อน',applied:'ปรับเงินเดือน',waiting:'รอกำหนด % ให้ครบ'})[e.type]).join(', ') : 'งานอัตโนมัติทำงานแล้ว — วันนี้ไม่มีงานที่ต้องทำ'; });
   });
   on('[data-ledger]', el => openLedgerModal(el.dataset.ledger));
+  on('[data-tier-preset]', () => { v.querySelectorAll('[data-tier-idx]').forEach(inp => { inp.value = TIER_PRESET[+inp.dataset.tierIdx] ?? 0; inp.closest('.tier-card')?.classList.remove('unset'); }); toast('ใส่ค่าแนะนำแล้ว — แก้ได้ แล้วกด "บันทึกและคำนวณใหม่"'); });
+  on('[data-tier-save]', saveTierPercents);
   v.querySelectorAll('[data-row-staff]').forEach(tr => {
     tr.addEventListener('click', e => { if(e.target.closest('button, a, input, select')) return; openLedgerModal(tr.dataset.rowStaff); });
     tr.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target === tr) openLedgerModal(tr.dataset.rowStaff); });
