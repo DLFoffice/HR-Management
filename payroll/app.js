@@ -2,6 +2,10 @@
    payroll/app.js — หน้าระบบเงินสะสม 5% และเลื่อนเงินเดือน (ผู้ดูแลเท่านั้น)
    ===================================================================== */
 const PR_URL_KEY = 'payroll_gas_url';
+/* URL ของ Apps Script ระบบเงินสะสม — ฝังไว้ เปิดเครื่องไหนก็เชื่อมต่อให้อัตโนมัติ (ยังต้องใส่รหัสผ่าน Admin ทุกครั้ง) */
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby7jwsN_F4HO97l6R39EWowZijtlwaWbM51-EBPwQKKYewK2EdvG_lNe5_n9hKUUCw/exec';
+const PR_DEMO_KEY = 'payroll_demo_session';
+function setDemoSession(on){ try{ on ? sessionStorage.setItem(PR_DEMO_KEY,'1') : sessionStorage.removeItem(PR_DEMO_KEY); }catch(e){} }
 const PR_TOKEN_KEY = 'payroll_token';
 const PR_TAB_KEY = 'payroll_tab';
 
@@ -45,7 +49,10 @@ function staffById(id){ return (PR.data.staff || []).find(s => s.id === id); }
 function activeStaff(){ return (PR.data.staff || []).filter(s => (s.status || 'active') === 'active'); }
 
 /* ------------------------------------------------------------ backend */
-function gasUrl(){ try{ return localStorage.getItem(PR_URL_KEY) || ''; }catch(e){ return ''; } }
+function gasUrl(){
+  try{ if(sessionStorage.getItem(PR_DEMO_KEY) === '1') return ''; }catch(e){}
+  try{ return localStorage.getItem(PR_URL_KEY) || DEFAULT_GAS_URL; }catch(e){ return DEFAULT_GAS_URL; }
+}
 function isDemo(){ return !gasUrl(); }
 
 async function api(action, payload){
@@ -777,10 +784,10 @@ function openConnModal(){
     try{
       const r = await fetch(url); const j = await r.json();
       if(j.app !== 'payroll') throw new Error('URL นี้ไม่ใช่ Web App ของระบบเงินเดือน');
-      localStorage.setItem(PR_URL_KEY, url); closeModal(); toast('เชื่อมต่อแล้ว — กรุณาเข้าสู่ระบบด้วยรหัสผ่านของ Apps Script'); logout(true);
+      localStorage.setItem(PR_URL_KEY, url); setDemoSession(false); closeModal(); toast('เชื่อมต่อแล้ว — กรุณาเข้าสู่ระบบด้วยรหัสผ่านของ Apps Script'); logout(true);
     }catch(e){ err.textContent = 'เชื่อมต่อไม่สำเร็จ: ' + e.message; err.style.display='block'; }
   });
-  document.getElementById('cn_demo')?.addEventListener('click', ()=>{ localStorage.removeItem(PR_URL_KEY); closeModal(); logout(true); });
+  document.getElementById('cn_demo')?.addEventListener('click', ()=>{ setDemoSession(true); closeModal(); logout(true); });
 }
 
 /* ============================================================ binding */
@@ -868,8 +875,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('prSaveUrl').addEventListener('click', async ()=>{
     const url = document.getElementById('prGasUrl').value.trim();
     if(!/^https:\/\/script\.google\.com\//.test(url)){ toast('URL ต้องขึ้นต้นด้วย https://script.google.com/'); return; }
-    localStorage.setItem(PR_URL_KEY, url); showLogin(); toast('บันทึก URL แล้ว — เข้าสู่ระบบด้วยรหัสผ่านของ Apps Script');
+    localStorage.setItem(PR_URL_KEY, url); setDemoSession(false); showLogin(); toast('บันทึก URL แล้ว — เข้าสู่ระบบด้วยรหัสผ่านของ Apps Script');
   });
-  document.getElementById('prUseDemo').addEventListener('click', ()=>{ localStorage.removeItem(PR_URL_KEY); showLogin(); });
+  document.getElementById('prUseDemo').addEventListener('click', ()=>{ setDemoSession(true); showLogin(); });
   resumeSession();
 });
